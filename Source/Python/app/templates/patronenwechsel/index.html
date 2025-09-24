@@ -1,0 +1,820 @@
+{% extends "base.html" %}
+
+{% block title %}Patronenwechsel - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Patronenwechsel Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-4 text-center mb-4">
+            <i class="fas fa-filter me-3"></i>Patronenwechsel-Verwaltung
+        </h1>
+    </div>
+</div>
+
+<!-- Navigation Buttons -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="btn-group w-100" role="group">
+            <button type="button" class="btn btn-primary active" onclick="showSection('status')">
+                <i class="fas fa-tachometer-alt me-2"></i>Status
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showSection('historie')">
+                <i class="fas fa-history me-2"></i>Historie
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showSection('konfiguration')">
+                <i class="fas fa-cog me-2"></i>Konfiguration
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showSection('statistiken')">
+                <i class="fas fa-chart-line me-2"></i>Statistiken
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- STATUS SEKTION -->
+<div id="section-status" class="section">
+    <!-- Aktueller Status -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-clock me-2"></i>Aktueller Patronenwechsel-Status
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="text-center mb-3">
+                                <h2 class="text-primary" id="status-countdown">Lädt...</h2>
+                                <small class="text-muted" id="status-details">Status wird geladen...</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li><strong>Gesamt-Betriebsstunden:</strong> <span id="status-betriebsstunden">--</span></li>
+                                <li><strong>Konfig. Intervall:</strong> <span id="status-intervall">--</span>h</li>
+                                <li><strong>Warnung ab:</strong> <span id="status-warnung">--</span>h vorher</li>
+                                <li><strong>Letzter Wechsel:</strong> <span id="status-letzter">--</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Aktion</h5>
+                    <button class="btn btn-success btn-lg w-100 mb-3" onclick="openPatronenwechselModal()">
+                        <i class="fas fa-tools fa-2x d-block mb-2"></i>
+                        <strong>PATRONENWECHSEL</strong>
+                        <small class="d-block">Jetzt durchführen</small>
+                    </button>
+                    <button class="btn btn-outline-primary w-100" onclick="refreshData()">
+                        <i class="fas fa-sync-alt me-2"></i>Status aktualisieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Info Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <i class="fas fa-filter fa-2x text-info mb-2"></i>
+                    <h6>Molekularsieb 1</h6>
+                    <h4 class="text-info" id="info-mol1">Aktiv</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <i class="fas fa-filter fa-2x text-info mb-2"></i>
+                    <h6>Molekularsieb 2</h6>
+                    <h4 class="text-info" id="info-mol2">Aktiv</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <i class="fas fa-filter fa-2x text-warning mb-2"></i>
+                    <h6>Kohle Filter</h6>
+                    <h4 class="text-warning" id="info-kohle">Aktiv</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <h6>Gesamt Wechsel</h6>
+                    <h4 class="text-success" id="info-total">--</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- HISTORIE SEKTION -->
+<div id="section-historie" class="section" style="display: none;">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Patronenwechsel-Historie
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="historie-table">
+                            <thead>
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Durchgeführt von</th>
+                                    <th>Betriebsstunden</th>
+                                    <th>Patronen</th>
+                                    <th>Chargennummern</th>
+                                    <th>Notizen</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historie-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center">Wird geladen...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KONFIGURATION SEKTION -->
+<div id="section-konfiguration" class="section" style="display: none;">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Patronenwechsel-Konfiguration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="config-form">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Patronenwechsel-Intervall (Stunden):</label>
+                            <input type="number" class="form-control" id="config-intervall" 
+                                   min="1" max="1000" step="0.1" placeholder="z.B. 12.0">
+                            <small class="form-text text-muted">Nach wie vielen Betriebsstunden sollen die Patronen gewechselt werden?</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Warnung vor Ablauf (Stunden):</label>
+                            <input type="number" class="form-control" id="config-warnung" 
+                                   min="0.1" max="24" step="0.1" placeholder="z.B. 2.0">
+                            <small class="form-text text-muted">Wie viele Stunden vor dem Patronenwechsel soll gewarnt werden?</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Passwort:</label>
+                            <input type="password" class="form-control" id="config-passwort" 
+                                   placeholder="Wartungspasswort erforderlich">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Geändert von:</label>
+                            <input type="text" class="form-control" id="config-person" 
+                                   placeholder="Ihr Name">
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="saveConfiguration()">
+                            <i class="fas fa-save me-2"></i>Konfiguration speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">Aktuelle Einstellungen</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>Intervall:</strong> <span id="current-intervall">--</span>h</li>
+                        <li><strong>Warnung:</strong> <span id="current-warnung">--</span>h</li>
+                        <li><strong>Erstellt:</strong> <span id="current-erstellt">--</span></li>
+                        <li><strong>Von:</strong> <span id="current-ersteller">--</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STATISTIKEN SEKTION -->
+<div id="section-statistiken" class="section" style="display: none;">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Patronenwechsel-Statistiken
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center mb-3">
+                                <h3 class="text-primary" id="stats-total">--</h3>
+                                <small>Gesamt Wechsel</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center mb-3">
+                                <h3 class="text-info" id="stats-avg-intervall">--</h3>
+                                <small>Ø Intervall (Tage)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-2">
+                        <strong>Letzter Wechsel:</strong> <span id="stats-letzter">--</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>Durchschn. Betriebsstunden:</strong> <span id="stats-avg-stunden">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-download me-2"></i>Berichte & Export
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Exportieren Sie Patronenwechsel-Daten für Dokumentation und Compliance.</p>
+                    
+                    <button class="btn btn-outline-primary w-100 mb-2" onclick="exportHistorie('csv')">
+                        <i class="fas fa-file-csv me-2"></i>CSV-Export (Letzte 50)
+                    </button>
+                    <button class="btn btn-outline-success w-100 mb-2" onclick="exportHistorie('pdf')">
+                        <i class="fas fa-file-pdf me-2"></i>PDF-Bericht (Letzte 20)
+                    </button>
+                    <button class="btn btn-outline-info w-100 mb-2" onclick="printReport()">
+                        <i class="fas fa-print me-2"></i>Browser-Druck
+                    </button>
+                    <button class="btn btn-success w-100 mb-2" onclick="printLatestEtikett()">
+                        <i class="fas fa-tags me-2"></i>Letztes Etikett drucken
+                    </button>
+                    <button class="btn btn-outline-primary w-100" onclick="showPrintQueue()">
+                        <i class="fas fa-list me-2"></i>Druckwarteschlange
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Back to Dashboard -->
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-arrow-left me-2"></i>
+            <a href="{{ url_for('main.index') }}" class="alert-link">Zurück zum Dashboard</a>
+            <span class="float-end">
+                <small id="last-update">Letztes Update: --</small>
+            </span>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// PATRONENWECHSEL DEDICATED PAGE JAVASCRIPT
+// ============================================================================
+
+let currentData = {};
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    refreshData();
+});
+
+// ============================================================================
+// SECTION NAVIGATION
+// ============================================================================
+
+function showSection(sectionName) {
+    // Alle Sektionen ausblenden
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Aktive Sektion anzeigen
+    document.getElementById('section-' + sectionName).style.display = 'block';
+    
+    // Button-States aktualisieren
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    buttons.forEach(button => {
+        button.classList.remove('active');
+        button.classList.add('btn-outline-primary');
+        button.classList.remove('btn-primary');
+    });
+    
+    // Aktiven Button markieren
+    event.target.classList.add('active');
+    event.target.classList.remove('btn-outline-primary');
+    event.target.classList.add('btn-primary');
+    
+    // Sektions-spezifische Daten laden
+    if (sectionName === 'historie') {
+        loadHistorie();
+    } else if (sectionName === 'konfiguration') {
+        loadKonfiguration();
+    } else if (sectionName === 'statistiken') {
+        loadStatistiken();
+    }
+}
+
+// ============================================================================
+// DATA LOADING
+// ============================================================================
+
+function refreshData() {
+    // Status laden
+    fetch('/api/kompressor/patronenwechsel/status')
+        .then(response => response.json())
+        .then(data => {
+            currentData.status = data;
+            updateStatusSection(data);
+            updateLastUpdate();
+        })
+        .catch(error => {
+            console.error('Fehler beim Status-Update:', error);
+            showErrorMessage('Fehler beim Laden des Status: ' + error.message);
+        });
+}
+
+function updateStatusSection(data) {
+    // Status-Anzeige
+    document.getElementById('status-countdown').textContent = data.countdown_text || '--';
+    document.getElementById('status-details').textContent = 
+        data.stunden_bis_wechsel !== undefined 
+            ? `Nächster Wechsel in ${data.stunden_bis_wechsel.toFixed(1)}h`
+            : 'Keine Daten verfügbar';
+    
+    // Weitere Status-Infos
+    document.getElementById('status-betriebsstunden').textContent = 
+        data.gesamt_betriebsstunden ? data.gesamt_betriebsstunden.toFixed(1) + 'h' : '--';
+    
+    if (data.konfiguration) {
+        document.getElementById('status-intervall').textContent = data.konfiguration.intervall_stunden;
+        document.getElementById('status-warnung').textContent = data.konfiguration.warnung_vor_stunden;
+    }
+    
+    if (data.letzte_wechsel && data.letzte_wechsel.length > 0) {
+        const letzter = data.letzte_wechsel[0];
+        const datum = new Date(letzter.wechsel_datum).toLocaleDateString('de-DE');
+        document.getElementById('status-letzter').textContent = datum;
+    }
+    
+    // Info-Cards (vereinfacht)
+    document.getElementById('info-total').textContent = 
+        data.letzte_wechsel ? data.letzte_wechsel.length : '--';
+}
+
+function loadHistorie() {
+    fetch('/api/kompressor/patronenwechsel/historie?limit=50')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateHistorieTable(data.patronenwechsel);
+            } else {
+                showErrorMessage('Fehler beim Laden der Historie: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Historie-Update:', error);
+            showErrorMessage('Fehler beim Laden der Historie: ' + error.message);
+        });
+}
+
+function updateHistorieTable(historie) {
+    const tbody = document.getElementById('historie-tbody');
+    
+    if (!historie || historie.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Keine Patronenwechsel gefunden</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = historie.map(wechsel => {
+        const datum = new Date(wechsel.wechsel_datum).toLocaleDateString('de-DE');
+        
+        const patronen = [];
+        if (wechsel.molekularsieb_patrone_1_gewechselt) patronen.push('MS1');
+        if (wechsel.molekularsieb_patrone_2_gewechselt) patronen.push('MS2');
+        if (wechsel.kohle_filter_gewechselt) patronen.push('Kohle');
+        
+        const chargen = [];
+        if (wechsel.molekularsieb_1_charge) chargen.push(`MS1: ${wechsel.molekularsieb_1_charge}`);
+        if (wechsel.molekularsieb_2_charge) chargen.push(`MS2: ${wechsel.molekularsieb_2_charge}`);
+        if (wechsel.kohle_filter_charge) chargen.push(`Kohle: ${wechsel.kohle_filter_charge}`);
+        
+        return `
+            <tr>
+                <td>${datum}</td>
+                <td>${wechsel.durchgefuehrt_von}</td>
+                <td>${wechsel.betriebsstunden_bei_wechsel.toFixed(1)}h</td>
+                <td><span class="badge bg-primary">${patronen.join(', ')}</span></td>
+                <td><small>${chargen.join('<br>')}</small></td>
+                <td><small>${wechsel.notizen || '--'}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-success" onclick="printPatronenEtikett(${wechsel.id})" title="Etikett drucken">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-info ms-1" onclick="showPrintJobs(${wechsel.id})" title="Druckjobs anzeigen">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function loadKonfiguration() {
+    fetch('/api/kompressor/patronenwechsel/konfiguration')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const config = data.konfiguration;
+                
+                // Aktuelle Werte anzeigen
+                document.getElementById('current-intervall').textContent = config.patronenwechsel_intervall_stunden;
+                document.getElementById('current-warnung').textContent = config.warnung_vor_stunden;
+                document.getElementById('current-erstellt').textContent = 
+                    new Date(config.erstellt_am).toLocaleDateString('de-DE');
+                document.getElementById('current-ersteller').textContent = config.erstellt_von;
+                
+                // Formular vorausfüllen
+                document.getElementById('config-intervall').value = config.patronenwechsel_intervall_stunden;
+                document.getElementById('config-warnung').value = config.warnung_vor_stunden;
+            } else {
+                showErrorMessage('Fehler beim Laden der Konfiguration: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Konfiguration-Update:', error);
+            showErrorMessage('Fehler beim Laden der Konfiguration: ' + error.message);
+        });
+}
+
+function loadStatistiken() {
+    // Nutze bereits geladene Historie-Daten oder lade sie
+    fetch('/api/kompressor/patronenwechsel/historie?limit=100')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateStatistikenSection(data);
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Statistiken-Update:', error);
+        });
+}
+
+function updateStatistikenSection(data) {
+    if (data.statistiken) {
+        document.getElementById('stats-total').textContent = data.statistiken.total_wechsel;
+        document.getElementById('stats-avg-intervall').textContent = 
+            data.statistiken.durchschnittliches_intervall_tage + ' Tage';
+        
+        if (data.statistiken.letzter_wechsel) {
+            const datum = new Date(data.statistiken.letzter_wechsel.wechsel_datum).toLocaleDateString('de-DE');
+            document.getElementById('stats-letzter').textContent = datum;
+        }
+    }
+}
+
+// ============================================================================
+// ACTIONS
+// ============================================================================
+
+function saveConfiguration() {
+    const passwort = document.getElementById('config-passwort').value.trim();
+    const intervall = parseFloat(document.getElementById('config-intervall').value);
+    const warnung = parseFloat(document.getElementById('config-warnung').value);
+    const person = document.getElementById('config-person').value.trim();
+    
+    // Validierung
+    if (!passwort) {
+        alert('Bitte Passwort eingeben!');
+        return;
+    }
+    
+    if (!intervall || intervall <= 0) {
+        alert('Bitte gültiges Intervall eingeben!');
+        return;
+    }
+    
+    if (!warnung || warnung < 0) {
+        alert('Bitte gültige Warnung eingeben!');
+        return;
+    }
+    
+    if (!person) {
+        alert('Bitte Namen eingeben!');
+        return;
+    }
+    
+    // API-Request
+    fetch('/api/kompressor/patronenwechsel/konfiguration', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            passwort: passwort,
+            patronenwechsel_intervall_stunden: intervall,
+            warnung_vor_stunden: warnung,
+            erstellt_von: person
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage('Konfiguration erfolgreich gespeichert!');
+            document.getElementById('config-passwort').value = '';
+            loadKonfiguration(); // Neu laden
+            refreshData(); // Status aktualisieren
+        } else {
+            showErrorMessage('Fehler beim Speichern: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler: ' + error.message);
+    });
+}
+
+function exportHistorie(format) {
+    // TODO: Export-Funktionalität implementieren
+    showInfoMessage(`${format.toUpperCase()}-Export wird implementiert...`);
+}
+
+function printReport() {
+    window.print();
+}
+
+// Modal-Funktionen (vom Dashboard übernehmen)
+function openPatronenwechselModal() {
+    // Modal aus Dashboard öffnen (falls verfügbar)
+    showInfoMessage('Patronenwechsel-Modal wird vom Dashboard übernommen...');
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function updateLastUpdate() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('de-DE');
+    document.getElementById('last-update').textContent = `Letztes Update: ${timeString}`;
+}
+
+function showSuccessMessage(message) {
+    alert('✅ ' + message);
+}
+
+function showErrorMessage(message) {
+    alert('❌ ' + message);
+}
+
+function showInfoMessage(message) {
+    alert('ℹ️ ' + message);
+}
+
+// ============================================================================
+// 62MM DRUCKER FUNKTIONEN - NEU
+// ============================================================================
+
+function printPatronenEtikett(wechselId) {
+    """Druckt Etikett für einen spezifischen Patronenwechsel"""
+    
+    const benutzer = prompt('Wer fordert den Druck an?', '');
+    if (!benutzer || benutzer.trim() === '') {
+        alert('❌ Bitte Namen eingeben!');
+        return;
+    }
+    
+    // API-Request
+    fetch(`/patronenwechsel/api/print/${wechselId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            erstellt_von: benutzer.trim()
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(`Etikett erfolgreich gedruckt! Job ID: ${data.job_id}`);
+        } else {
+            showErrorMessage('Druck fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler beim Drucken: ' + error.message);
+    });
+}
+
+function printLatestEtikett() {
+    """Druckt Etikett für den letzten Patronenwechsel"""
+    
+    if (!currentData.status || !currentData.status.letzte_wechsel || currentData.status.letzte_wechsel.length === 0) {
+        showErrorMessage('Kein letzter Patronenwechsel gefunden!');
+        return;
+    }
+    
+    const letzterWechsel = currentData.status.letzte_wechsel[0];
+    printPatronenEtikett(letzterWechsel.id);
+}
+
+function showPrintJobs(wechselId) {
+    """Zeigt alle Druckjobs für einen Patronenwechsel"""
+    
+    fetch(`/patronenwechsel/api/print/jobs/${wechselId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.print_jobs.length === 0) {
+                    alert('ℹ️ Keine Druckjobs für diesen Patronenwechsel gefunden.');
+                    return;
+                }
+                
+                let jobsText = `Druckjobs für Patronenwechsel #${wechselId}:\n\n`;
+                
+                data.print_jobs.forEach(job => {
+                    const datum = new Date(job.erstellt_am).toLocaleDateString('de-DE');
+                    const status = getStatusText(job.status);
+                    
+                    jobsText += `Job #${job.id}:\n`;
+                    jobsText += `  Erstellt: ${datum} von ${job.erstellt_von}\n`;
+                    jobsText += `  Status: ${status}\n`;
+                    jobsText += `  Druckversuche: ${job.druckversuche}\n`;
+                    jobsText += `  Wiederholungen: ${job.wiederholungsdrucke}\n`;
+                    
+                    if (job.gedruckt_am) {
+                        const gedruckt = new Date(job.gedruckt_am).toLocaleDateString('de-DE');
+                        jobsText += `  Gedruckt: ${gedruckt}\n`;
+                    }
+                    
+                    if (job.fehler_nachricht) {
+                        jobsText += `  Fehler: ${job.fehler_nachricht}\n`;
+                    }
+                    
+                    jobsText += '\n';
+                });
+                
+                alert(jobsText);
+                
+                // Option für Wiederholungsdruck anbieten
+                if (data.print_jobs.length > 0) {
+                    const jobId = data.print_jobs[0].id; // Letzter Job
+                    const reprint = confirm('Möchten Sie den letzten Druckjob wiederholen?');
+                    if (reprint) {
+                        reprintJob(jobId);
+                    }
+                }
+                
+            } else {
+                showErrorMessage('Fehler beim Laden der Druckjobs: ' + data.error);
+            }
+        })
+        .catch(error => {
+            showErrorMessage('Netzwerkfehler: ' + error.message);
+        });
+}
+
+function reprintJob(jobId) {
+    """Führt Wiederholungsdruck aus"""
+    
+    const benutzer = prompt('Wer fordert den Wiederholungsdruck an?', '');
+    if (!benutzer || benutzer.trim() === '') {
+        alert('❌ Bitte Namen eingeben!');
+        return;
+    }
+    
+    fetch(`/patronenwechsel/api/reprint/${jobId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            angefordert_von: benutzer.trim()
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage('Wiederholungsdruck erfolgreich!');
+        } else {
+            showErrorMessage('Wiederholungsdruck fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler beim Wiederholungsdruck: ' + error.message);
+    });
+}
+
+function showPrintQueue() {
+    """Zeigt Druckwarteschlange an"""
+    
+    fetch('/patronenwechsel/api/print/queue')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let queueText = 'DRUCKWARTESCHLANGE\n\n';
+                
+                queueText += `Wartende Jobs: ${data.warteschlange.wartende_jobs}\n\n`;
+                
+                if (data.warteschlange.pending_jobs.length > 0) {
+                    queueText += 'WARTENDE JOBS:\n';
+                    data.warteschlange.pending_jobs.forEach(job => {
+                        const datum = new Date(job.erstellt_am).toLocaleDateString('de-DE');
+                        queueText += `- Job #${job.id}: ${job.job_typ} (${datum})\n`;
+                    });
+                } else {
+                    queueText += 'Keine wartenden Jobs.\n';
+                }
+                
+                queueText += '\n\nLETZTE JOBS:\n';
+                data.letzte_jobs.slice(0, 5).forEach(job => {
+                    const datum = new Date(job.erstellt_am).toLocaleDateString('de-DE');
+                    const status = getStatusText(job.status);
+                    queueText += `- Job #${job.id}: ${status} (${datum})\n`;
+                });
+                
+                alert(queueText);
+                
+                // Option Warteschlange verarbeiten
+                if (data.warteschlange.wartende_jobs > 0) {
+                    const process = confirm('Möchten Sie die Warteschlange jetzt verarbeiten?');
+                    if (process) {
+                        processQueue();
+                    }
+                }
+                
+            } else {
+                showErrorMessage('Fehler beim Laden der Warteschlange: ' + data.error);
+            }
+        })
+        .catch(error => {
+            showErrorMessage('Netzwerkfehler: ' + error.message);
+        });
+}
+
+function processQueue() {
+    """Verarbeitet Druckwarteschlange"""
+    
+    fetch('/patronenwechsel/api/print/queue/process', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(`Warteschlange verarbeitet: ${data.erfolgreich} erfolgreich, ${data.fehler} Fehler`);
+        } else {
+            showErrorMessage('Warteschlangen-Verarbeitung fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler: ' + error.message);
+    });
+}
+
+function getStatusText(status) {
+    """Konvertiert Status-Code zu lesbarem Text"""
+    const statusMap = {
+        'pending': '⏳ Wartend',
+        'printing': '🖨️ Druckt',
+        'success': '✅ Erfolgreich',
+        'error': '❌ Fehler',
+        'cancelled': '⚪ Abgebrochen'
+    };
+    
+    return statusMap[status] || status;
+}
+
+</script>
+{% endblock %}

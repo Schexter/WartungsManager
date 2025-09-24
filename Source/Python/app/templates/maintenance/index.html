@@ -1,0 +1,448 @@
+{% extends "admin_layout.html" %}
+
+{% block title %}Wartung - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Wartung Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-5 text-center mb-4">
+            <i class="fas fa-wrench me-3"></i>Wartungs-Management
+        </h1>
+        <p class="text-center text-muted">Patronenverwaltung und Kompressor-Wartung</p>
+    </div>
+</div>
+
+<!-- Patronenwechsel Countdown (Prominent angezeigt) -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <h3><i class="fas fa-filter me-2"></i>Patronenwechsel Status</h3>
+                <div class="timer-large mb-3" id="patronenwechsel-countdown-display">
+                    <span id="patronenwechsel-countdown">{{ dashboard_status.countdown_text if dashboard_status else 'Lädt...' }}</span>
+                </div>
+                <div class="total-hours mb-3">
+                    <span id="patronenwechsel-info">{{ dashboard_status.countdown_text if dashboard_status else 'Status wird geladen...' }}</span>
+                </div>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{{ url_for('maintenance.patrone_wechseln') }}" class="btn btn-danger btn-lg" 
+                       {% if dashboard_status and dashboard_status.wechsel_faellig %}style="animation: pulse 2s infinite;"{% endif %}>
+                        <i class="fas fa-tools me-2"></i>Patronen wechseln
+                    </a>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-tachometer-alt me-2"></i>Zum Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Touch-optimierte Wartungsfunktionen -->
+<div class="touch-grid mb-5">
+    <a href="{{ url_for('maintenance.patrone_vorbereiten') }}" class="btn btn-success btn-touch">
+        <i class="fas fa-fill-drip fa-2x d-block mb-2"></i>
+        <strong>PATRONE VORBEREITEN</strong>
+        <small class="d-block">Wer hat was wann gefüllt</small>
+        <small class="d-block text-success">Mit Etikettendruck (62cm)</small>
+    </a>
+    
+    <a href="{{ url_for('maintenance.patrone_einkauf') }}" class="btn btn-info btn-touch">
+        <i class="fas fa-shopping-cart fa-2x d-block mb-2"></i>
+        <strong>PATRONE EINBUCHEN</strong>
+        <small class="d-block">Was, Wann, Lieferant</small>
+        <small class="d-block text-info">Mit Kleber-Druck</small>
+    </a>
+    
+    <a href="{{ url_for('maintenance.patrone_wechseln') }}" class="btn btn-primary btn-touch">
+        <i class="fas fa-exchange-alt fa-2x d-block mb-2"></i>
+        <strong>PATRONE WECHSELN</strong>
+        <small class="d-block">Vorbereitete auswählen</small>
+        <small class="d-block text-primary">Mit Gewichts-Protokoll</small>
+    </a>
+    
+    <button class="btn btn-warning btn-touch" onclick="showKompressorWartungModal()">
+        <i class="fas fa-cog fa-2x d-block mb-2"></i>
+        <strong>KOMPRESSOR WARTUNG</strong>
+        <small class="d-block">Reset & Korrektur</small>
+        <small class="d-block text-warning">Passwort erforderlich</small>
+    </button>
+</div>
+
+<!-- Übersicht der verfügbaren Patronen -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Verfügbare Patronen</h5>
+            </div>
+            <div class="card-body">
+                {% if verfuegbare_patronen and verfuegbare_patronen.success %}
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <strong>Molekularsieb:</strong>
+                            <div class="text-primary fs-4">{{ verfuegbare_patronen.molekularsieb_anzahl }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <strong>Kohle:</strong>
+                            <div class="text-warning fs-4">{{ verfuegbare_patronen.kohle_anzahl }}</div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">Gesamt: {{ verfuegbare_patronen.gesamt_anzahl }} Patronen bereit</small>
+                    </div>
+                {% else %}
+                    <div class="text-muted">Keine Daten verfügbar</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-warehouse me-2"></i>Lagerbestand</h5>
+            </div>
+            <div class="card-body">
+                {% if lagerbestand and lagerbestand.success %}
+                    {% if lagerbestand.warnung_anzahl > 0 %}
+                        <div class="alert alert-warning p-2 mb-2">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            <strong>{{ lagerbestand.warnung_anzahl }}</strong> Artikel mit niedrigem Bestand!
+                        </div>
+                    {% endif %}
+                    
+                    {% for typ, artikel in lagerbestand.lagerbestand_nach_typ.items() %}
+                        <div class="mb-2">
+                            <strong>{{ typ }}:</strong>
+                            <span class="badge bg-secondary">{{ artikel|length }} Positionen</span>
+                        </div>
+                    {% endfor %}
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('maintenance.patrone_einkauf') }}" class="btn btn-sm btn-info">
+                            <i class="fas fa-eye me-1"></i>Details anzeigen
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-muted">Keine Lagerdaten verfügbar</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wartungsstatistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary text-center">
+            <div class="card-body">
+                <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                <h6>Betriebsstunden</h6>
+                <h4 class="text-primary" id="gesamt-betriebsstunden">--h</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-warning text-center">
+            <div class="card-body">
+                <i class="fas fa-wrench fa-2x text-warning mb-2"></i>
+                <h6>Nächste Wartung</h6>
+                <h4 class="text-warning" id="naechste-wartung">--h</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-success text-center">
+            <div class="card-body">
+                <i class="fas fa-oil-can fa-2x text-success mb-2"></i>
+                <h6>Öl-Test Quote</h6>
+                <h4 class="text-success" id="oel-test-quote">--%</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-info text-center">
+            <div class="card-body">
+                <i class="fas fa-filter fa-2x text-info mb-2"></i>
+                <h6>Letzte Patronen</h6>
+                <h4 class="text-info" id="letzter-patronenwechsel">Nie</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Live-Update Info -->
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Wartungs-System:</strong> Neue Patronenverwaltung mit Vorbereitung, Einkauf und Wechsel-Protokoll
+            <span class="float-end">
+                <small id="last-update">Letztes Update: --</small>
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Kompressor Wartung Modal (vereinfacht) -->
+<div class="modal fade" id="kompressorWartungModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h4 class="modal-title">
+                    <i class="fas fa-cog me-2"></i>Kompressor Wartung
+                </h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Hinweis:</strong> Diese Funktionen sind nur für geschultes Wartungspersonal!
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <button class="btn btn-danger btn-lg w-100 mb-3" onclick="showKompressorResetModal()">
+                            <i class="fas fa-undo me-2"></i>Kompressor Reset
+                            <small class="d-block">Timer auf 00:00:00</small>
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <button class="btn btn-info btn-lg w-100 mb-3" onclick="showStundenKorrekturModal()">
+                            <i class="fas fa-edit me-2"></i>Stunden korrigieren
+                            <small class="d-block">Gesamt-Betriebszeit</small>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-lock me-1"></i>Alle Funktionen erfordern das Wartungspasswort
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// WARTUNGS-INTERFACE JAVASCRIPT
+// ============================================================================
+
+let wartungsInterface;
+
+document.addEventListener('DOMContentLoaded', function() {
+    wartungsInterface = new WartungsInterface();
+    loadWartungsStatus();
+    
+    // Auto-refresh alle 30 Sekunden
+    setInterval(loadWartungsStatus, 30000);
+});
+
+class WartungsInterface {
+    constructor() {
+        console.log('Wartungs-Interface initialisiert');
+    }
+    
+    updatePatronenwechselCountdown(status) {
+        const countdownElement = document.getElementById('patronenwechsel-countdown');
+        const infoElement = document.getElementById('patronenwechsel-info');
+        const displayElement = document.getElementById('patronenwechsel-countdown-display');
+        
+        if (status.error) {
+            countdownElement.textContent = 'Fehler';
+            infoElement.textContent = status.error;
+            displayElement.className = 'timer-large text-danger';
+            return;
+        }
+        
+        countdownElement.textContent = status.countdown_text;
+        infoElement.textContent = `Nächster Wechsel in ${status.stunden_bis_wechsel.toFixed(1)}h`;
+        
+        // Farbe je nach Dringlichkeit
+        if (status.wechsel_faellig) {
+            displayElement.className = 'timer-large text-danger';
+        } else if (status.warnung_aktiv) {
+            displayElement.className = 'timer-large text-warning';
+        } else {
+            displayElement.className = 'timer-large text-success';
+        }
+    }
+}
+
+function loadWartungsStatus() {
+    // Patronenwechsel-Status laden
+    fetch('/api/maintenance/dashboard-status')
+        .then(response => response.json())
+        .then(data => {
+            wartungsInterface.updatePatronenwechselCountdown(data);
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden des Patronenwechsel-Status:', error);
+        });
+    
+    // Kompressor-Statistiken laden
+    fetch('/api/kompressor/status')
+        .then(response => response.json())
+        .then(data => {
+            updateKompressorStats(data);
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Kompressor-Statistiken:', error);
+        });
+    
+    updateLastUpdate();
+}
+
+function updateKompressorStats(data) {
+    // Gesamt-Betriebsstunden
+    const gesamtStundenElement = document.getElementById('gesamt-betriebsstunden');
+    if (data.statistiken && data.statistiken.gesamt_betriebsstunden !== undefined) {
+        gesamtStundenElement.textContent = data.statistiken.gesamt_betriebsstunden + 'h';
+    }
+    
+    // Öl-Test Quote
+    const oelQuoteElement = document.getElementById('oel-test-quote');
+    if (data.statistiken && data.statistiken.oel_statistiken) {
+        const quote = data.statistiken.oel_statistiken.test_quote || 0;
+        oelQuoteElement.textContent = quote + '%';
+        
+        // Farbe anpassen
+        if (quote >= 80) {
+            oelQuoteElement.className = 'text-success';
+        } else {
+            oelQuoteElement.className = 'text-warning';
+        }
+    }
+}
+
+function updateLastUpdate() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('de-DE');
+    document.getElementById('last-update').textContent = `Letztes Update: ${timeString}`;
+}
+
+// ============================================================================
+// MODAL FUNKTIONEN
+// ============================================================================
+
+function showKompressorWartungModal() {
+    const modal = new bootstrap.Modal(document.getElementById('kompressorWartungModal'));
+    modal.show();
+}
+
+function showKompressorResetModal() {
+    alert('Kompressor Reset-Funktion\n\nDiese Funktion wird in einem separaten Modal implementiert.\nVerwenden Sie das bestehende Reset-Interface.');
+    // TODO: Implementierung des Reset-Modals
+}
+
+function showStundenKorrekturModal() {
+    alert('Stunden-Korrektur Funktion\n\nDiese Funktion wird in einem separaten Modal implementiert.\nVerwenden Sie das bestehende Korrektur-Interface.');
+    // TODO: Implementierung des Korrektur-Modals
+}
+
+// ============================================================================
+// UTILITY FUNKTIONEN
+// ============================================================================
+
+function showSuccessMessage(message) {
+    // Einfache Erfolgs-Nachricht
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Nach 5 Sekunden automatisch entfernen
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+function showErrorMessage(message) {
+    // Einfache Fehler-Nachricht
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Nach 7 Sekunden automatisch entfernen
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 7000);
+}
+</script>
+
+<!-- Pulse Animation für dringende Wechsel -->
+<style>
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.btn-touch {
+    min-height: 120px;
+    padding: 20px;
+    margin: 10px;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-touch:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+.touch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.timer-large {
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.total-hours {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .touch-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .timer-large {
+        font-size: 2rem;
+    }
+}
+</style>
+{% endblock %}

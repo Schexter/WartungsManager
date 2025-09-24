@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>WartungsManager Shelly-Steuerung</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 50%, #A855F7 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            color: #374151;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .status-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .status-card {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: left;
+        }
+        
+        .status-card h3 {
+            color: #64748B;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-value {
+            color: #1E293B;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .status-online { color: #10B981; }
+        .status-warning { color: #F59E0B; }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #7C3AED;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #3B82F6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563EB;
+        }
+        
+        .btn-secondary {
+            background: #06B6D4;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #0891B2;
+        }
+        
+        .control-section {
+            background: #F1F5F9;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+        
+        .control-section h3 {
+            color: #374151;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+        
+        .btn-info {
+            background: #06B6D4;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #0891B2;
+        }
+        
+        .result {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .result.success {
+            background: #ECFDF5;
+            color: #065F46;
+            border: 1px solid #A7F3D0;
+        }
+        
+        .result.error {
+            background: #FEF2F2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+                padding: 24px;
+            }
+            
+            .status-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔌 WartungsManager Shelly-Steuerung</h1>
+        </div>
+        
+        <div class="status-row">
+            <div class="status-card">
+                <h3>🌐 Server-Status</h3>
+                <p class="status-value" id="server-status">Online</p>
+            </div>
+            <div class="status-card">
+                <h3>🔌 Shelly-Status</h3>
+                <p class="status-value" id="shelly-status">Nicht konfiguriert</p>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>IP-Adresse des Shelly:</label>
+            <input type="text" class="form-control" id="ip" value="192.168.1.100">
+        </div>
+        
+        <div class="form-group">
+            <label>Shelly-Modell:</label>
+            <select class="form-control" id="model">
+                <option value="Shelly1">Shelly 1 (Basis)</option>
+                <option value="Shelly1PM" selected>Shelly 1PM (mit Leistungsmessung)</option>
+                <option value="ShellyPlus1">Shelly Plus 1 (Gen2)</option>
+                <option value="ShellyPlus1PM">Shelly Plus 1PM (Gen2 + Leistung)</option>
+            </select>
+        </div>
+        
+        <button class="btn btn-primary" onclick="testConnection()">🔍 Verbindung testen</button>
+        <button class="btn btn-secondary" onclick="saveConfig()">💾 Konfiguration speichern</button>
+        
+        <div class="control-section">
+            <h3>🏭 Kompressor-Steuerung</h3>
+            <button class="btn btn-success" onclick="turnOn()">▶️ EINSCHALTEN</button>
+            <button class="btn btn-danger" onclick="turnOff()">⏹️ AUSSCHALTEN</button>
+            <button class="btn btn-info" onclick="getStatus()">📊 Status abfragen</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+    
+    <script>
+        function showResult(message, isSuccess) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result ' + (isSuccess ? 'success' : 'error');
+            resultDiv.innerHTML = message;
+        }
+        
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('/api/shelly/config');
+                document.getElementById('server-status').innerHTML = '<span class="status-online">Online</span>';
+                
+                const data = await response.json();
+                if (data.success && data.config && data.config.enabled) {
+                    document.getElementById('shelly-status').innerHTML = `<span class="status-online">${data.config.model} (${data.config.ip_address})</span>`;
+                    document.getElementById('ip').value = data.config.ip_address;
+                    document.getElementById('model').value = data.config.model;
+                } else {
+                    document.getElementById('shelly-status').innerHTML = '<span class="status-warning">Nicht konfiguriert</span>';
+                }
+            } catch (error) {
+                document.getElementById('server-status').innerHTML = '<span class="status-offline">Offline</span>';
+            }
+        }
+        
+        async function testConnection() {
+            const ip = document.getElementById('ip').value;
+            const model = document.getElementById('model').value;
+            
+            if (!ip) {
+                showResult('Bitte IP-Adresse eingeben', false);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/shelly/test-connection', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ip_address: ip, model: model})
+                });
+                
+                const result = await response.json();
+                showResult(
+                    result.success ? 'Verbindung erfolgreich!' : 'Verbindung fehlgeschlagen: ' + (result.error || 'Unbekannter Fehler'),
+                    result.success
+                );
+            } catch (error) {
+                showResult('Test-Fehler: ' + error.message, false);
+            }
+        }
+        
+        async function saveConfig() {
+            const config = {
+                enabled: true,
+                ip_address: document.getElementById('ip').value,
+                model: document.getElementById('model').value
+            };
+            
+            if (!config.ip_address) {
+                showResult('Bitte IP-Adresse eingeben', false);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/shelly/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                showResult(
+                    result.success ? 'Konfiguration gespeichert!' : 'Speichern fehlgeschlagen: ' + (result.error || 'Unbekannter Fehler'),
+                    result.success
+                );
+                
+                if (result.success) {
+                    document.getElementById('shelly-status').innerHTML = `<span class="status-online">${config.model} (${config.ip_address})</span>`;
+                }
+            } catch (error) {
+                showResult('Speicher-Fehler: ' + error.message, false);
+            }
+        }
+        
+        async function turnOn() {
+            try {
+                const response = await fetch('/api/shelly/kompressor/einschalten', { method: 'POST' });
+                const result = await response.json();
+                showResult(
+                    result.success ? 'Kompressor eingeschaltet!' : 'Einschalten fehlgeschlagen: ' + (result.error || 'Unbekannter Fehler'),
+                    result.success
+                );
+            } catch (error) {
+                showResult('Einschalt-Fehler: ' + error.message, false);
+            }
+        }
+        
+        async function turnOff() {
+            try {
+                const response = await fetch('/api/shelly/kompressor/ausschalten', { method: 'POST' });
+                const result = await response.json();
+                showResult(
+                    result.success ? 'Kompressor ausgeschaltet!' : 'Ausschalten fehlgeschlagen: ' + (result.error || 'Unbekannter Fehler'),
+                    result.success
+                );
+            } catch (error) {
+                showResult('Ausschalt-Fehler: ' + error.message, false);
+            }
+        }
+        
+        async function getStatus() {
+            try {
+                const response = await fetch('/api/shelly/kompressor/status');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const status = result.data;
+                    showResult(`
+                        Status: ${status.online ? 'Online' : 'Offline'}<br>
+                        Relais: ${status.relay_on ? 'EIN' : 'AUS'}<br>
+                        Leistung: ${status.power || 0} W
+                    `, true);
+                } else {
+                    showResult('Status-Abfrage fehlgeschlagen: ' + (result.error || 'Keine Daten'), false);
+                }
+            } catch (error) {
+                showResult('Status-Fehler: ' + error.message, false);
+            }
+        }
+        
+        setInterval(checkServerStatus, 30000);
+        window.addEventListener('load', checkServerStatus);
+    </script>
+</body>
+</html>

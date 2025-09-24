@@ -1,0 +1,728 @@
+{% extends "base.html" %}
+
+{% block title %}K14 Dokumentation - WartungsManager{% endblock %}
+
+{% block content %}
+<style>
+/* K14 Dokumentation Styles */
+.doc-category {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 180px;
+}
+
+.doc-category:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.doc-category .icon-container {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.doc-item {
+    border-left: 4px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.doc-item:hover {
+    border-left-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.doc-stats {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.wartungs-alert {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.pdf-viewer-modal .modal-dialog {
+    max-width: 90%;
+    height: 90vh;
+}
+
+.pdf-viewer-container {
+    height: 80vh;
+    overflow: auto;
+}
+
+/* Mobile Optimierung */
+@media (max-width: 768px) {
+    .doc-category {
+        min-height: 120px;
+    }
+    
+    .doc-category .icon-container {
+        font-size: 2rem;
+    }
+}
+</style>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-4">
+                    <i class="fas fa-book-open me-3"></i>K14 Kompressor Dokumentation
+                </h1>
+                <p class="text-muted fs-5">Technische Unterlagen, Anleitungen und Wartungspläne</p>
+            </div>
+            <div class="text-end">
+                <button class="btn btn-primary" onclick="zeigeWartungsStatus()">
+                    <i class="fas fa-tools me-2"></i>Wartungsstatus
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wartungswarnung (wenn fällig) -->
+<div id="wartungs-warnung" class="row mb-4" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-warning wartungs-alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Wartung fällig!</strong> <span id="wartungs-info"></span>
+            <a href="/patronenwechsel" class="btn btn-warning btn-sm ms-3">
+                <i class="fas fa-wrench me-1"></i>Zur Wartung
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Schnellsuche -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="dokument-suche" 
+                           placeholder="Dokumente durchsuchen (Titel, Typ, Stichwörter)..."
+                           onkeyup="sucheDokumente()">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dokumenten-Kategorien -->
+<div class="row mb-4">
+    <!-- Bedienungsanleitungen -->
+    <div class="col-md-4 mb-3">
+        <div class="card doc-category" onclick="zeigeKategorie('bedienung')">
+            <div class="card-body text-center">
+                <div class="icon-container text-primary">
+                    <i class="fas fa-book"></i>
+                </div>
+                <h5 class="card-title">Bedienungsanleitungen</h5>
+                <p class="card-text">Technische Dienstvorschriften und Handbücher</p>
+                <div class="doc-stats">
+                    <span class="badge bg-primary">4 Dokumente</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Technische Unterlagen -->
+    <div class="col-md-4 mb-3">
+        <div class="card doc-category" onclick="zeigeKategorie('technisch')">
+            <div class="card-body text-center">
+                <div class="icon-container text-warning">
+                    <i class="fas fa-project-diagram"></i>
+                </div>
+                <h5 class="card-title">Technische Unterlagen</h5>
+                <p class="card-text">Schaltpläne und technische Zeichnungen</p>
+                <div class="doc-stats">
+                    <span class="badge bg-warning">2 Dokumente</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Wartungspläne -->
+    <div class="col-md-4 mb-3">
+        <div class="card doc-category" onclick="zeigeKategorie('wartung')">
+            <div class="card-body text-center">
+                <div class="icon-container text-success">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <h5 class="card-title">Wartungspläne</h5>
+                <p class="card-text">Wartungsintervalle und Checklisten</p>
+                <div class="doc-stats">
+                    <span class="badge bg-success">3 Dokumente</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dokumentenliste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-folder-open me-2"></i>
+                    <span id="kategorie-titel">Alle Dokumente</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="dokumente-liste">
+                    <!-- Wird dynamisch gefüllt -->
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Dokumente werden geladen...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zuletzt verwendet -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Zuletzt verwendete Dokumente
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="letzte-dokumente">
+                    <p class="text-muted mb-0">Noch keine Dokumente geöffnet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PDF Viewer Modal -->
+<div class="modal fade" id="pdfViewerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pdf-titel">
+                    <i class="fas fa-file-pdf me-2"></i>Dokument
+                </h5>
+                <div class="ms-auto me-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="pdfZoomIn()">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="pdfZoomOut()">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="pdfDownload()">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="pdfDrucken()">
+                        <i class="fas fa-print"></i>
+                    </button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="pdf-viewer-container">
+                    <iframe id="pdf-viewer" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted me-auto">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Tipp: Nutzen Sie die Zoom-Funktionen für bessere Lesbarkeit
+                </small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// K14 DOKUMENTATION JAVASCRIPT
+// ============================================================================
+
+// Dokumente-Datenbank (später aus Backend laden)
+const dokumente = [
+    // Bedienungsanleitungen
+    {
+        id: 1,
+        kategorie: 'bedienung',
+        titel: 'Bedienungsanleitung TDv 4310032-14',
+        dateiname: 'Bedienungsantl. TDv 4310032-14.pdf',
+        beschreibung: 'Technische Dienstvorschrift für K14 Kompressor',
+        groesse: '3.2 MB',
+        version: '1.0',
+        wichtigkeit: 1,
+        tags: ['TDv', 'Bedienung', 'Militär', 'Standard']
+    },
+    {
+        id: 2,
+        kategorie: 'bedienung',
+        titel: 'Betreiberhandbuch Deutsch',
+        dateiname: 'betreiberhandbuch_d.pdf',
+        beschreibung: 'Allgemeines Betreiberhandbuch in deutscher Sprache',
+        groesse: '790 KB',
+        version: '2.1',
+        wichtigkeit: 2,
+        tags: ['Bedienung', 'Deutsch', 'Handbuch']
+    },
+    {
+        id: 3,
+        kategorie: 'bedienung',
+        titel: 'B140D Spezifikation',
+        dateiname: 'B140D_8_1.pdf',
+        beschreibung: 'Spezifische Anleitung für B140D Modell',
+        groesse: '3.8 MB',
+        version: '8.1',
+        wichtigkeit: 3,
+        tags: ['B140D', 'Spezifikation', 'Modell']
+    },
+    
+    // Technische Unterlagen
+    {
+        id: 4,
+        kategorie: 'technisch',
+        titel: 'Schaltplan K14',
+        dateiname: 'Schaltplan.pdf',
+        beschreibung: 'Elektrischer Schaltplan des K14 Kompressors',
+        groesse: '1.2 MB',
+        version: '1.0',
+        wichtigkeit: 1,
+        tags: ['Schaltplan', 'Elektrik', 'Technisch']
+    },
+    {
+        id: 5,
+        kategorie: 'technisch',
+        titel: 'Wartungsprotokoll Scan',
+        dateiname: 'Scan 05.06.2025, 11.19.pdf',
+        beschreibung: 'Gescanntes Wartungsprotokoll vom 05.06.2025',
+        groesse: '450 KB',
+        version: '-',
+        wichtigkeit: 3,
+        tags: ['Protokoll', 'Wartung', 'Scan']
+    },
+    
+    // Wartungspläne (virtuell - werden generiert)
+    {
+        id: 6,
+        kategorie: 'wartung',
+        titel: 'Wartungsintervalle K14',
+        dateiname: 'wartungsintervalle.html',
+        beschreibung: 'Übersicht aller Wartungsintervalle',
+        groesse: 'Online',
+        version: 'Aktuell',
+        wichtigkeit: 1,
+        tags: ['Wartung', 'Intervalle', 'Übersicht'],
+        virtuell: true
+    },
+    {
+        id: 7,
+        kategorie: 'wartung',
+        titel: 'Patronenwechsel Checkliste',
+        dateiname: 'patronenwechsel_checkliste.html',
+        beschreibung: 'Schritt-für-Schritt Anleitung Patronenwechsel',
+        groesse: 'Online',
+        version: 'Aktuell',
+        wichtigkeit: 1,
+        tags: ['Patronenwechsel', 'Checkliste', 'Anleitung'],
+        virtuell: true
+    },
+    {
+        id: 8,
+        kategorie: 'wartung',
+        titel: 'Wartungshistorie',
+        dateiname: '/kompressor',
+        beschreibung: 'Komplette Wartungshistorie anzeigen',
+        groesse: 'Link',
+        version: '-',
+        wichtigkeit: 2,
+        tags: ['Historie', 'Wartung', 'Protokoll'],
+        link: true
+    }
+];
+
+let aktuelleDokumente = dokumente;
+let aktuelleKategorie = 'alle';
+let pdfUrl = '';
+
+// ============================================================================
+// INITIALISIERUNG
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    ladeDokumente();
+    pruefeWartungsstatus();
+    ladeLetzteDokumente();
+});
+
+// ============================================================================
+// DOKUMENTEN-FUNKTIONEN
+// ============================================================================
+
+function ladeDokumente(kategorie = 'alle') {
+    const container = document.getElementById('dokumente-liste');
+    
+    // Filter anwenden
+    if (kategorie === 'alle') {
+        aktuelleDokumente = dokumente;
+    } else {
+        aktuelleDokumente = dokumente.filter(doc => doc.kategorie === kategorie);
+    }
+    
+    // Sortieren nach Wichtigkeit
+    aktuelleDokumente.sort((a, b) => a.wichtigkeit - b.wichtigkeit);
+    
+    // HTML generieren
+    if (aktuelleDokumente.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Keine Dokumente in dieser Kategorie</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    
+    aktuelleDokumente.forEach(doc => {
+        const wichtigkeitBadge = doc.wichtigkeit === 1 ? 'danger' : 
+                                doc.wichtigkeit === 2 ? 'warning' : 'secondary';
+        
+        html += `
+            <div class="list-group-item list-group-item-action doc-item" 
+                 onclick="oeffneDokument(${doc.id})">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">
+                            ${getDocIcon(doc)}
+                            ${doc.titel}
+                            <span class="badge bg-${wichtigkeitBadge} ms-2">${getWichtigkeitText(doc.wichtigkeit)}</span>
+                        </h6>
+                        <p class="mb-1 text-muted">${doc.beschreibung}</p>
+                        <div class="doc-stats">
+                            <small>
+                                <i class="fas fa-file-alt me-1"></i>${doc.groesse}
+                                ${doc.version !== '-' ? `<i class="fas fa-code-branch ms-2 me-1"></i>v${doc.version}` : ''}
+                                <i class="fas fa-tags ms-2 me-1"></i>${doc.tags.join(', ')}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i>Öffnen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function getDocIcon(doc) {
+    if (doc.virtuell) return '<i class="fas fa-globe text-info me-2"></i>';
+    if (doc.link) return '<i class="fas fa-link text-success me-2"></i>';
+    return '<i class="fas fa-file-pdf text-danger me-2"></i>';
+}
+
+function getWichtigkeitText(wichtigkeit) {
+    switch(wichtigkeit) {
+        case 1: return 'Kritisch';
+        case 2: return 'Wichtig';
+        default: return 'Normal';
+    }
+}
+
+// ============================================================================
+// KATEGORIE-FUNKTIONEN
+// ============================================================================
+
+function zeigeKategorie(kategorie) {
+    aktuelleKategorie = kategorie;
+    
+    // Titel aktualisieren
+    const titel = document.getElementById('kategorie-titel');
+    switch(kategorie) {
+        case 'bedienung':
+            titel.textContent = 'Bedienungsanleitungen';
+            break;
+        case 'technisch':
+            titel.textContent = 'Technische Unterlagen';
+            break;
+        case 'wartung':
+            titel.textContent = 'Wartungspläne';
+            break;
+        default:
+            titel.textContent = 'Alle Dokumente';
+    }
+    
+    // Dokumente laden
+    ladeDokumente(kategorie);
+    
+    // Scroll zu Liste
+    document.getElementById('dokumente-liste').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ============================================================================
+// DOKUMENT ÖFFNEN
+// ============================================================================
+
+function oeffneDokument(docId) {
+    const doc = dokumente.find(d => d.id === docId);
+    if (!doc) return;
+    
+    // Statistik aktualisieren
+    speichereZugriff(doc);
+    
+    if (doc.link) {
+        // Externe Seite öffnen
+        window.location.href = doc.dateiname;
+    } else if (doc.virtuell) {
+        // Virtuelle Seite anzeigen
+        zeigeVirtuelleSeite(doc);
+    } else {
+        // PDF öffnen
+        oeffnePDF(doc);
+    }
+}
+
+function oeffnePDF(doc) {
+    // Modal-Titel setzen
+    document.getElementById('pdf-titel').innerHTML = `
+        <i class="fas fa-file-pdf me-2"></i>${doc.titel}
+    `;
+    
+    // PDF-URL konstruieren - direkt aus K14 Ordner
+    pdfUrl = `/k14/dokument/${encodeURIComponent(doc.dateiname)}`;
+    
+    // PDF laden
+    document.getElementById('pdf-viewer').src = pdfUrl;
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
+    modal.show();
+}
+
+// ============================================================================
+// PDF-VIEWER FUNKTIONEN
+// ============================================================================
+
+let pdfZoom = 100;
+
+function pdfZoomIn() {
+    pdfZoom = Math.min(pdfZoom + 25, 200);
+    updatePdfZoom();
+}
+
+function pdfZoomOut() {
+    pdfZoom = Math.max(pdfZoom - 25, 50);
+    updatePdfZoom();
+}
+
+function updatePdfZoom() {
+    const viewer = document.getElementById('pdf-viewer');
+    viewer.style.transform = `scale(${pdfZoom / 100})`;
+    viewer.style.transformOrigin = 'top left';
+    viewer.style.width = `${10000 / pdfZoom}%`;
+    viewer.style.height = `${10000 / pdfZoom}%`;
+}
+
+function pdfDownload() {
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = pdfUrl.split('/').pop();
+    link.click();
+}
+
+function pdfDrucken() {
+    const viewer = document.getElementById('pdf-viewer');
+    viewer.contentWindow.print();
+}
+
+// ============================================================================
+// SUCHE
+// ============================================================================
+
+function sucheDokumente() {
+    const suchbegriff = document.getElementById('dokument-suche').value.toLowerCase();
+    
+    if (!suchbegriff) {
+        ladeDokumente(aktuelleKategorie);
+        return;
+    }
+    
+    // Dokumente filtern
+    const gefiltert = dokumente.filter(doc => {
+        return doc.titel.toLowerCase().includes(suchbegriff) ||
+               doc.beschreibung.toLowerCase().includes(suchbegriff) ||
+               doc.tags.some(tag => tag.toLowerCase().includes(suchbegriff));
+    });
+    
+    aktuelleDokumente = gefiltert;
+    
+    // Anzeigen
+    const container = document.getElementById('dokumente-liste');
+    if (gefiltert.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Keine Dokumente gefunden für: <strong>${suchbegriff}</strong></p>
+            </div>
+        `;
+    } else {
+        document.getElementById('kategorie-titel').textContent = `Suchergebnisse (${gefiltert.length})`;
+        aktuelleDokumente = gefiltert;
+        ladeDokumente('suche');
+    }
+}
+
+// ============================================================================
+// WARTUNGSSTATUS
+// ============================================================================
+
+async function pruefeWartungsstatus() {
+    try {
+        const response = await fetch('/api/kompressor/wartungsintervall/status');
+        const result = await response.json();
+        
+        if (result.wartungsintervall && result.wartungsintervall.ist_faellig) {
+            const warnung = document.getElementById('wartungs-warnung');
+            const info = document.getElementById('wartungs-info');
+            
+            info.textContent = `Patronenwechsel überfällig! ${result.wartungsintervall.intervall_stunden.toFixed(1)}h von ${result.wartungsintervall.wartungsintervall}h`;
+            warnung.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Fehler beim Prüfen des Wartungsstatus:', error);
+    }
+}
+
+function zeigeWartungsStatus() {
+    window.location.href = '/kompressor';
+}
+
+// ============================================================================
+// VIRTUELLE SEITEN
+// ============================================================================
+
+function zeigeVirtuelleSeite(doc) {
+    if (doc.titel.includes('Wartungsintervalle')) {
+        window.location.href = '/k14/wartungsintervalle';
+    } else if (doc.titel.includes('Patronenwechsel')) {
+        window.location.href = '/k14/patronenwechsel-anleitung';
+    }
+}
+
+// ============================================================================
+// STATISTIK
+// ============================================================================
+
+function speichereZugriff(doc) {
+    // Zugriff in localStorage speichern
+    let zugriffe = JSON.parse(localStorage.getItem('k14_zugriffe') || '[]');
+    
+    zugriffe.unshift({
+        docId: doc.id,
+        titel: doc.titel,
+        zeitpunkt: new Date().toISOString()
+    });
+    
+    // Nur letzte 10 behalten
+    zugriffe = zugriffe.slice(0, 10);
+    
+    localStorage.setItem('k14_zugriffe', JSON.stringify(zugriffe));
+    ladeLetzteDokumente();
+}
+
+function ladeLetzteDokumente() {
+    const container = document.getElementById('letzte-dokumente');
+    const zugriffe = JSON.parse(localStorage.getItem('k14_zugriffe') || '[]');
+    
+    if (zugriffe.length === 0) {
+        return;
+    }
+    
+    let html = '<div class="list-group list-group-flush">';
+    
+    zugriffe.slice(0, 5).forEach(zugriff => {
+        const doc = dokumente.find(d => d.id === zugriff.docId);
+        if (!doc) return;
+        
+        const zeit = new Date(zugriff.zeitpunkt);
+        const zeitText = zeit.toLocaleDateString('de-DE') + ' ' + zeit.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        
+        html += `
+            <a href="#" class="list-group-item list-group-item-action py-2" 
+               onclick="oeffneDokument(${doc.id}); return false;">
+                <div class="d-flex justify-content-between">
+                    <span>${getDocIcon(doc)}${doc.titel}</span>
+                    <small class="text-muted">${zeitText}</small>
+                </div>
+            </a>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// TOAST FUNKTIONEN
+// ============================================================================
+
+function showToast(type, message) {
+    const toastContainer = document.querySelector('.toast-container');
+    const toastId = 'toast-' + Date.now();
+    
+    const bgClass = type === 'success' ? 'bg-success' : 
+                   type === 'error' ? 'bg-danger' : 'bg-info';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+</script>
+{% endblock %}
+
+**Erstellt von Hans Hahn - Alle Rechte vorbehalten**

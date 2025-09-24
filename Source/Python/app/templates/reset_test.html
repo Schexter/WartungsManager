@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset-Test - WartungsManager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        input[type="password"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .status-display {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Kompressor Reset-Test</h1>
+    
+    <div class="warning">
+        <strong>⚠️ Achtung:</strong> Diese Seite testet die Reset-Funktionalität. 
+        Der Reset setzt den Kompressor-Timer auf 00:00:00 zurück!
+    </div>
+    
+    <div class="test-card">
+        <h2>1. Aktueller Kompressor-Status</h2>
+        <button class="btn" onclick="loadStatus()">Status laden</button>
+        <div id="status-result" class="status-display">
+            Klicken Sie "Status laden" um den aktuellen Zustand zu sehen...
+        </div>
+    </div>
+    
+    <div class="test-card">
+        <h2>2. Reset durchführen</h2>
+        <div>
+            <label><strong>Wartungspasswort:</strong></label>
+            <input type="password" id="resetPassword" placeholder="Magicfactory15!" value="">
+        </div>
+        <div>
+            <label><strong>Grund für Reset (optional):</strong></label>
+            <input type="text" id="resetReason" placeholder="z.B. Ölwechsel, Wartung" value="">
+        </div>
+        <button class="btn btn-warning" onclick="executeReset()">🔄 Reset durchführen</button>
+        <div id="reset-result"></div>
+    </div>
+    
+    <div class="test-card">
+        <h2>3. Sicherheitstest</h2>
+        <p>Test mit falschem Passwort (sollte fehlschlagen):</p>
+        <button class="btn" onclick="testWrongPassword()">❌ Falsches Passwort testen</button>
+        <div id="security-result"></div>
+    </div>
+    
+    <div class="test-card">
+        <h2>4. Navigation zum Live-System</h2>
+        <p>Für den echten Reset verwenden Sie das Wartungsinterface:</p>
+        <button class="btn" onclick="goToMaintenance()">🔧 Zum Wartungsinterface</button>
+        <button class="btn" onclick="goToDashboard()">🏠 Zum Dashboard</button>
+    </div>
+
+    <script>
+        // API-Basis URL
+        const API_BASE = '/api/kompressor';
+        
+        async function loadStatus() {
+            const resultDiv = document.getElementById('status-result');
+            resultDiv.innerHTML = 'Lädt Status...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                
+                let statusHtml = '<h4>Kompressor-Status:</h4>';
+                statusHtml += `<p><strong>Läuft:</strong> ${data.ist_an ? 'JA' : 'NEIN'}</p>`;
+                
+                if (data.ist_an && data.aktiver_kompressor) {
+                    const komp = data.aktiver_kompressor;
+                    statusHtml += `<p><strong>Füller:</strong> ${komp.fueller}</p>`;
+                    statusHtml += `<p><strong>Start-Zeit:</strong> ${new Date(komp.start_zeit).toLocaleString('de-DE')}</p>`;
+                    statusHtml += `<p><strong>Öl getestet:</strong> ${komp.oel_getestet ? 'JA' : 'NEIN'}</p>`;
+                    if (komp.oel_getestet) {
+                        statusHtml += `<p><strong>Öl-Test:</strong> ${komp.oel_test_ergebnis} (von ${komp.oel_tester})</p>`;
+                    }
+                }
+                
+                statusHtml += `<p><strong>Gesamt-Betriebsstunden:</strong> ${data.gesamt_betriebsstunden || '0.0'}h</p>`;
+                
+                resultDiv.innerHTML = statusHtml;
+                resultDiv.className = 'status-display success';
+                
+            } catch (error) {
+                resultDiv.innerHTML = `Fehler beim Laden: ${error.message}`;
+                resultDiv.className = 'status-display error';
+            }
+        }
+        
+        async function executeReset() {
+            const password = document.getElementById('resetPassword').value;
+            const reason = document.getElementById('resetReason').value;
+            const resultDiv = document.getElementById('reset-result');
+            
+            if (!password) {
+                resultDiv.innerHTML = '<div class="result error">Passwort ist erforderlich!</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="result info">Reset wird durchgeführt...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/reset`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        passwort: password,
+                        grund: reason || 'Test über Reset-Tool'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let successHtml = '<div class="result success">';
+                    successHtml += '<h4>✅ Reset erfolgreich!</h4>';
+                    successHtml += `<p><strong>Message:</strong> ${result.message}</p>`;
+                    
+                    if (result.reset_info) {
+                        const info = result.reset_info;
+                        successHtml += '<h5>Reset-Details:</h5>';
+                        successHtml += `<p><strong>Alte Laufzeit:</strong> ${Math.round(info.alte_laufzeit_minuten)} Minuten</p>`;
+                        successHtml += `<p><strong>Grund:</strong> ${info.grund}</p>`;
+                        successHtml += `<p><strong>Neue Startzeit:</strong> ${new Date(info.neue_startzeit).toLocaleString('de-DE')}</p>`;
+                    }
+                    
+                    successHtml += '</div>';
+                    resultDiv.innerHTML = successHtml;
+                    
+                    // Status automatisch aktualisieren
+                    setTimeout(loadStatus, 1000);
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">❌ Reset fehlgeschlagen: ${result.error}</div>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">❌ Netzwerkfehler: ${error.message}</div>`;
+            }
+        }
+        
+        async function testWrongPassword() {
+            const resultDiv = document.getElementById('security-result');
+            resultDiv.innerHTML = '<div class="result info">Teste Sicherheit...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/reset`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        passwort: 'falschesPasswort123',
+                        grund: 'Sicherheitstest'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    resultDiv.innerHTML = `<div class="result success">✅ Sicherheit OK: ${result.error}</div>`;
+                } else {
+                    resultDiv.innerHTML = '<div class="result error">❌ SICHERHEITSPROBLEM: Falsches Passwort wurde akzeptiert!</div>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">❌ Fehler beim Sicherheitstest: ${error.message}</div>`;
+            }
+        }
+        
+        function goToMaintenance() {
+            window.location.href = '/maintenance/';
+        }
+        
+        function goToDashboard() {
+            window.location.href = '/';
+        }
+        
+        // Beim Laden der Seite Status abrufen
+        window.addEventListener('load', loadStatus);
+    </script>
+</body>
+</html>

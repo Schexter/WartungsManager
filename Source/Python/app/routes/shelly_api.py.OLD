@@ -1,0 +1,221 @@
+"""
+Shelly-API für Kompressor-Steuerung
+Universelle Integration für alle Shelly-Modelle
+"""
+
+from flask import Blueprint, request, jsonify, current_app
+import requests
+import logging
+
+shelly_api = Blueprint('shelly_api', __name__, url_prefix='/api/shelly')
+
+def get_shelly_config():
+    """Hole aktuelle Shelly-Konfiguration aus Flask-Config"""
+    return current_app.config.get('SHELLY_CONFIG', {
+        'enabled': False,
+        'ip_address': '192.168.1.100',
+        'model': 'Shelly1PM',
+        'username': '',
+        'password': '',
+        'timeout': 10
+    })
+
+@shelly_api.route('/config', methods=['GET', 'POST'])
+def config():
+    """Shelly-Konfiguration verwalten"""
+    
+    if request.method == 'POST':
+        try:
+            data = request.json
+            if data:
+                # Update der Runtime-Config (temporär für Session)
+                current_app.config['SHELLY_CONFIG'].update(data)
+                return jsonify({'success': True, 'config': current_app.config['SHELLY_CONFIG']})
+            else:
+                return jsonify({'success': False, 'error': 'Keine Daten empfangen'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+    
+    return jsonify({'success': True, 'config': get_shelly_config()})
+
+@shelly_api.route('/test-connection', methods=['POST'])
+def test_connection():
+    """Shelly-Verbindung testen"""
+    try:
+        data = request.json
+        config = get_shelly_config()
+        
+        ip = data.get('ip_address', config['ip_address'])
+        model = data.get('model', config['model'])
+        timeout = data.get('timeout', 5)
+        username = data.get('username', config.get('username'))
+        password = data.get('password', config.get('password'))
+        
+        # Status-Endpunkt je nach Modell
+        if model.startswith('ShellyPlus'):
+            status_url = f"http://{ip}/rpc/Shelly.GetStatus"
+        else:
+            status_url = f"http://{ip}/status"
+        
+        # Auth nur wenn Credentials vorhanden
+        auth = None
+        if username and password:
+            auth = (username, password)
+        
+        response = requests.get(status_url, timeout=timeout, auth=auth)
+        
+        if response.status_code == 200:
+            return jsonify({
+                'success': True, 
+                'message': f'Shelly {model} erfolgreich erreicht',
+                'data': response.json()
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'error': f'HTTP {response.status_code}'
+            })
+            
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'error': 'Verbindungs-Timeout'})
+    except requests.exceptions.ConnectionError:
+        return jsonify({'success': False, 'error': 'Verbindung fehlgeschlagen - IP erreichbar?'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@shelly_api.route('/kompressor/einschalten', methods=['POST'])
+def kompressor_einschalten():
+    """Kompressor über Shelly einschalten"""
+    try:
+        config = get_shelly_config()
+        
+        if not config['enabled']:
+            return jsonify({'success': False, 'error': 'Shelly nicht aktiviert. Bitte in Konfiguration aktivieren!'})
+        
+        ip = config['ip_address']
+        model = config['model']
+        username = config.get('username')
+        password = config.get('password')
+        timeout = config['timeout']
+        
+        # Auth nur wenn Credentials vorhanden
+        auth = None
+        if username and password:
+            auth = (username, password)
+        
+        # Einschalt-Endpunkt je nach Modell
+        if model.startswith('ShellyPlus'):
+            switch_url = f"http://{ip}/rpc/Switch.Set"
+            data = {"id": 0, "on": True}
+            response = requests.post(switch_url, json=data, timeout=timeout, auth=auth)
+        else:
+            switch_url = f"http://{ip}/relay/0?turn=on"
+            response = requests.get(switch_url, timeout=timeout, auth=auth)
+        
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': 'Kompressor eingeschaltet'})
+        else:
+            return jsonify({'success': False, 'error': f'HTTP {response.status_code}'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@shelly_api.route('/kompressor/ausschalten', methods=['POST'])
+def kompressor_ausschalten():
+    """Kompressor über Shelly ausschalten"""
+    try:
+        config = get_shelly_config()
+        
+        if not config['enabled']:
+            return jsonify({'success': False, 'error': 'Shelly nicht aktiviert. Bitte in Konfiguration aktivieren!'})
+        
+        ip = config['ip_address']
+        model = config['model']
+        username = config.get('username')
+        password = config.get('password')
+        timeout = config['timeout']
+        
+        # Auth nur wenn Credentials vorhanden
+        auth = None
+        if username and password:
+            auth = (username, password)
+        
+        # Ausschalt-Endpunkt je nach Modell
+        if model.startswith('ShellyPlus'):
+            switch_url = f"http://{ip}/rpc/Switch.Set"
+            data = {"id": 0, "on": False}
+            response = requests.post(switch_url, json=data, timeout=timeout, auth=auth)
+        else:
+            switch_url = f"http://{ip}/relay/0?turn=off"
+            response = requests.get(switch_url, timeout=timeout, auth=auth)
+        
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': 'Kompressor ausgeschaltet'})
+        else:
+            return jsonify({'success': False, 'error': f'HTTP {response.status_code}'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@shelly_api.route('/kompressor/status', methods=['GET'])
+def kompressor_status():
+    """Kompressor-Status über Shelly abfragen"""
+    try:
+        config = get_shelly_config()
+        
+        if not config['enabled']:
+            return jsonify({'success': False, 'error': 'Shelly nicht aktiviert'})
+        
+        ip = config['ip_address']
+        model = config['model']
+        username = config.get('username')
+        password = config.get('password')
+        timeout = config['timeout']
+        
+        # Auth nur wenn Credentials vorhanden
+        auth = None
+        if username and password:
+            auth = (username, password)
+        
+        # Status-Endpunkt je nach Modell
+        if model.startswith('ShellyPlus'):
+            status_url = f"http://{ip}/rpc/Shelly.GetStatus"
+        else:
+            status_url = f"http://{ip}/status"
+        
+        response = requests.get(status_url, timeout=timeout, auth=auth)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Status-Daten vereinheitlichen
+            if model.startswith('ShellyPlus'):
+                switch_data = data.get('switch:0', {})
+                status_data = {
+                    'online': True,
+                    'relay_on': switch_data.get('output', False),
+                    'power': switch_data.get('apower', 0),
+                    'temperature': data.get('temperature:0', {}).get('tC'),
+                    'model': model,
+                    'ip': ip
+                }
+            else:
+                relay_data = data.get('relays', [{}])[0]
+                meter_data = data.get('meters', [{}])[0] if 'meters' in data else {}
+                status_data = {
+                    'online': True,
+                    'relay_on': relay_data.get('ison', False),
+                    'power': meter_data.get('power', 0),
+                    'temperature': data.get('temperature'),
+                    'model': model,
+                    'ip': ip
+                }
+            
+            return jsonify({'success': True, 'data': status_data})
+        else:
+            return jsonify({'success': False, 'error': f'HTTP {response.status_code}'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'online': False})
+
+# Erstellt von Hans Hahn - Alle Rechte vorbehalten

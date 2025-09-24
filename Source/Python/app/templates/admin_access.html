@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>WartungsManager - Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c5aa0; text-align: center; }
+        .admin-links { display: grid; gap: 15px; margin-top: 30px; }
+        .admin-link { display: block; padding: 15px; background: #3498db; color: white; text-decoration: none; text-align: center; border-radius: 5px; font-size: 16px; }
+        .admin-link:hover { background: #2980b9; color: white; text-decoration: none; }
+        .status { background: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 WartungsManager Admin</h1>
+        
+        <div class="status">
+            <h3>System-Status</h3>
+            <p>✅ <strong>Server läuft:</strong> http://localhost:5000</p>
+            <p>✅ <strong>Datenbank:</strong> Verbindung hergestellt</p>
+            <p>⚠️ <strong>Shelly:</strong> Nicht konfiguriert</p>
+        </div>
+        
+        <div class="admin-links">
+            <a href="/admin" class="admin-link">🎛️ Admin Dashboard</a>
+            <a href="/templates/shelly_config.html" class="admin-link">🔌 Shelly Konfiguration</a>
+            <a href="/api/shelly/config" class="admin-link">⚙️ Shelly API Status</a>
+            <a href="/" class="admin-link">🏠 Zurück zum Hauptsystem</a>
+        </div>
+        
+        <div class="status">
+            <h3>Schnellhilfe</h3>
+            <ul>
+                <li><strong>Shelly einrichten:</strong> IP-Adresse des Shelly-Geräts eingeben</li>
+                <li><strong>Modell wählen:</strong> Shelly1, Shelly1PM, ShellyPlus1, ShellyPlus1PM</li>
+                <li><strong>Verbindung testen:</strong> "Test Connection" Button verwenden</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

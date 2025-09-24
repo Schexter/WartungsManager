@@ -1,0 +1,176 @@
+<!-- Füllmanager Hauptseite -->
+{% extends "base.html" %}
+
+{% block title %}Füllmanager{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-10">
+            <h1 class="h2">
+                <i class="fas fa-fill-drip"></i> Füllmanager
+            </h1>
+        </div>
+        <div class="col-2 text-right">
+            <a href="{{ url_for('fuellmanager.preise') }}" class="btn btn-outline-primary">
+                <i class="fas fa-coins"></i> Preise
+            </a>
+        </div>
+    </div>
+
+    <!-- Aktuelle Füllvorgänge -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-spinner fa-spin"></i> Aktive Füllvorgänge
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if aktive_fuellungen %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Auftragsnr.</th>
+                                        <th>Kunde</th>
+                                        <th>Flasche</th>
+                                        <th>Status</th>
+                                        <th>Gasgemisch</th>
+                                        <th>Operator</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fuellung in aktive_fuellungen %}
+                                    <tr>
+                                        <td>{{ fuellung.auftragsnummer }}</td>
+                                        <td>{{ fuellung.kunde.vollname }}</td>
+                                        <td>{{ fuellung.flasche.flasche_nummer }}</td>
+                                        <td>
+                                            <span class="badge badge-warning">
+                                                {{ fuellung.status }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            O₂: {{ fuellung.sauerstoff_prozent }}% |
+                                            He: {{ fuellung.helium_prozent }}% |
+                                            N₂: {{ fuellung.stickstoff_prozent }}%
+                                        </td>
+                                        <td>{{ fuellung.operator.username }}</td>
+                                        <td>
+                                            <a href="{{ url_for('fuellmanager.details', id=fuellung.id) }}" 
+                                               class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i> Details
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="fas fa-info-circle"></i> Keine aktiven Füllvorgänge
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Neuen Füllvorgang starten -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus-circle"></i> Neuen Füllvorgang starten
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center py-4">
+                        <a href="{{ url_for('fuellmanager.neue_annahme') }}" 
+                           class="btn btn-success btn-lg">
+                            <i class="fas fa-play"></i> Flasche annehmen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Abgeschlossene Füllvorgänge (heute) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle"></i> Heutige abgeschlossene Füllvorgänge
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if heutige_fuellungen %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Zeit</th>
+                                        <th>Auftragsnr.</th>
+                                        <th>Kunde</th>
+                                        <th>Flasche</th>
+                                        <th>Gasgemisch</th>
+                                        <th>Preis</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fuellung in heutige_fuellungen %}
+                                    <tr>
+                                        <td>{{ fuellung.uebergabe_zeit.strftime('%H:%M') }}</td>
+                                        <td>{{ fuellung.auftragsnummer }}</td>
+                                        <td>{{ fuellung.kunde.vollname }}</td>
+                                        <td>{{ fuellung.flasche.flasche_nummer }}</td>
+                                        <td>
+                                            O₂: {{ fuellung.sauerstoff_prozent }}% |
+                                            He: {{ fuellung.helium_prozent }}%
+                                        </td>
+                                        <td>{{ "%.2f"|format(fuellung.gesamtpreis) }} €</td>
+                                        <td>
+                                            <a href="{{ url_for('fuellmanager.details', id=fuellung.id) }}" 
+                                               class="btn btn-sm btn-outline-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('fuellmanager.drucken', id=fuellung.id) }}" 
+                                               class="btn btn-sm btn-outline-secondary" target="_blank">
+                                                <i class="fas fa-print"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="fas fa-info-circle"></i> Heute noch keine abgeschlossenen Füllvorgänge
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-Refresh für aktive Füllvorgänge
+setInterval(function() {
+    {% if aktive_fuellungen %}
+    location.reload();
+    {% endif %}
+}, 30000); // Alle 30 Sekunden
+</script>
+{% endblock %}

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{% block title %}WartungsManager{% endblock %}</title>
+    
+    <!-- Bootstrap 5 für Touch-optimierte UI -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom Touch-optimierte CSS -->
+    <style>
+        :root {
+            --touch-primary: #007bff;
+            --touch-success: #28a745;
+            --touch-danger: #dc3545;
+            --touch-warning: #ffc107;
+            --touch-spacing: 8px;
+        }
+        
+        /* Touch-optimierte Button-Grundlagen */
+        .btn-touch {
+            min-height: 80px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 15px 20px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-touch:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Grid Layout für Buttons */
+        .touch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        /* Button Icon Styling */
+        .btn-touch i {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        
+        .btn-touch strong {
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+        
+        .btn-touch small {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+        
+        /* Navigation angepasst */
+        .navbar {
+            padding: 1rem;
+        }
+        
+        .nav-link {
+            padding: 0.75rem 1rem !important;
+            margin: 0 0.25rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .nav-link.active {
+            background-color: rgba(255,255,255,0.2);
+        }
+        
+        /* Mobile Navigation */
+        @media (max-width: 768px) {
+            .navbar-nav {
+                flex-direction: row !important;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .nav-link {
+                font-size: 0.9rem;
+                padding: 0.5rem 0.75rem !important;
+            }
+            
+            .nav-link i {
+                display: block;
+                text-align: center;
+                margin-bottom: 0.25rem;
+            }
+        }
+        
+        /* Status-Display mit großer Schrift */
+        .status-display {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 16px 0;
+            text-align: center;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .timer-large {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--touch-primary);
+            font-family: 'Courier New', monospace;
+        }
+        
+        /* Toast positioning */
+        .toast-container {
+            z-index: 1080;
+        }
+        
+        /* Responsive Grid Anpassungen */
+        @media (max-width: 576px) {
+            .touch-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .btn-touch {
+                min-height: 70px;
+            }
+        }
+        
+        @media (min-width: 768px) and (max-width: 991px) {
+            .touch-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 992px) and (max-width: 1199px) {
+            .touch-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (min-width: 1200px) {
+            .touch-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Vereinfachte Navigation mit nur funktionierenden Links -->
+    <nav class="navbar navbar-expand navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand fs-4 fw-bold" href="{{ url_for('main.index') }}">
+                <i class="fas fa-cogs me-2"></i>WartungsManager
+            </a>
+            
+            <!-- Hauptnavigation - immer sichtbar -->
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" 
+                   href="{{ url_for('main.index') }}">
+                    <i class="fas fa-home"></i>
+                    <span class="d-none d-sm-inline ms-1">Dashboard</span>
+                </a>
+                
+                {# Füll-Center - Route noch nicht implementiert
+                <a class="nav-link {% if request.endpoint == 'main.fuell_center' %}active{% endif %}"
+                   href="#">
+                    <i class="fas fa-fill-drip"></i>
+                    <span class="d-none d-sm-inline ms-1">Füll-Center</span>
+                </a>
+                #}
+                
+                {# Kundenmanager - Route noch nicht implementiert
+                <a class="nav-link {% if request.endpoint == 'main.kundenmanager' %}active{% endif %}"
+                   href="#">
+                    <i class="fas fa-users"></i>
+                    <span class="d-none d-sm-inline ms-1">Kunden</span>
+                </a>
+                #}
+                
+                <!-- Dropdown für weitere Optionen -->
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                        <span class="d-none d-sm-inline ms-1">Mehr</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <!-- Füllmanager wenn verfügbar -->
+                        {% if 'fuellmanager' in blueprints %}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('fuellmanager.index') }}">
+                                <i class="fas fa-fill me-2"></i>Füllmanager
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        
+                        <!-- Legacy Links -->
+                        <li>
+                            {# Flaschen-Annahme - Route noch nicht implementiert
+                            <a class="dropdown-item" href="#">
+                                <i class="fas fa-inbox me-2"></i>Flaschen-Annahme (Alt)
+                            </a>
+                            #}
+                        </li>
+                        <li>
+                            {# Bulk-Füllung - Route noch nicht implementiert
+                            <a class="dropdown-item" href="#">
+                                <i class="fas fa-layer-group me-2"></i>Bulk-Füllung (Alt)
+                            </a>
+                            #}
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <!-- Direkte Links für andere Module -->
+                        <li>
+                            <a class="dropdown-item" href="/fuelling/">
+                                <i class="fas fa-play-circle me-2"></i>Einzelfüllung
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="/maintenance/">
+                                <i class="fas fa-wrench me-2"></i>Wartung
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="/protocol/">
+                                <i class="fas fa-clipboard-list me-2"></i>Protokoll
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('k14.dokumentation') }}">
+                                <i class="fas fa-book-open me-2"></i>K14 Handbücher
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            {# Prüfungsmanagement - Route noch nicht implementiert
+                            <a class="dropdown-item" href="#">
+                                <i class="fas fa-calendar-check me-2"></i>Prüfungen
+                            </a>
+                            #}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="container-fluid py-4">
+        {% block content %}
+        <!-- Inhalt wird von Child-Templates eingefügt -->
+        {% endblock %}
+    </main>
+
+    <!-- Status Bar -->
+    <footer class="bg-dark text-light py-3 mt-auto">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-6">
+                    <small class="text-muted">
+                        <i class="fas fa-server me-1"></i>WartungsManager v3.1
+                    </small>
+                </div>
+                <div class="col-6 text-end">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="current-time"></span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Live-Uhr aktualisieren
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('de-DE');
+            const dateString = now.toLocaleDateString('de-DE');
+            document.getElementById('current-time').textContent = `${dateString} ${timeString}`;
+        }
+        
+        // Uhr jede Sekunde aktualisieren
+        setInterval(updateTime, 1000);
+        updateTime(); // Sofort anzeigen
+        
+        // Touch-Feedback für alle Buttons
+        document.querySelectorAll('.btn-touch').forEach(button => {
+            button.addEventListener('touchstart', function() {
+                this.style.transform = 'scale(0.95)';
+            });
+            
+            button.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 100);
+            });
+        });
+        
+        // Verhindere Zoom bei Doppeltipp (iOS Safari)
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Markiere aktuelle Seite in Navigation
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('.nav-link').forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+            }
+        });
+    </script>
+    
+    {% block scripts %}
+    <!-- Zusätzliche Scripts von Child-Templates -->
+    {% endblock %}
+</body>
+</html>

@@ -1,0 +1,765 @@
+{% extends "base.html" %}
+
+{% block title %}Flasche hinzufügen - WartungsManager{% endblock %}
+
+{% block content %}
+<style>
+/* Vereinfachte Flaschen-Erfassung Styles */
+.form-section {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.form-section h5 {
+    color: #495057;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.required-field::after {
+    content: ' *';
+    color: #dc3545;
+}
+
+.flasche-groesse-btn {
+    min-height: 60px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin: 5px;
+}
+
+.ventil-option {
+    padding: 15px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    margin: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ventil-option:hover {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+}
+
+.ventil-option.selected {
+    border-color: #007bff;
+    background-color: #007bff;
+    color: white;
+}
+
+.info-badge {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    border-radius: 20px;
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+.quick-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+</style>
+
+<!-- Header mit Kunden-Info -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-5">
+                    <i class="fas fa-wine-bottle me-3"></i>Neue Flasche hinzufügen
+                </h1>
+                <div class="mt-2">
+                    <span class="info-badge">
+                        <i class="fas fa-user me-2"></i>
+                        <strong id="kunde-name">Kunde wird geladen...</strong>
+                    </span>
+                    <span class="info-badge ms-2">
+                        <i class="fas fa-id-card me-2"></i>
+                        <span id="kunde-nummer">--</span>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <a href="/flaschen-annehmen" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Info -->
+<div class="quick-info">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>Hinweis:</strong> Die interne Flaschennummer wird automatisch generiert. 
+    Erfassen Sie nur die Flaschendaten - mindestens Größe und Prüfdatum.
+</div>
+
+<form id="flascheHinzufuegenForm">
+    <input type="hidden" id="kunde_id" name="kunde_id">
+    
+    <!-- PFLICHTFELDER -->
+    <div class="form-section">
+        <h5><i class="fas fa-asterisk text-danger me-2"></i>Pflichtangaben</h5>
+        
+        <!-- Flaschengröße -->
+        <div class="mb-4">
+            <label class="form-label required-field">Flaschengröße (Liter)</label>
+            <div class="row" id="groesse-buttons">
+                <div class="col-6 col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100 flasche-groesse-btn" onclick="setzeGroesse(10)">
+                        10 L
+                    </button>
+                </div>
+                <div class="col-6 col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100 flasche-groesse-btn" onclick="setzeGroesse(12)">
+                        12 L
+                    </button>
+                </div>
+                <div class="col-6 col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100 flasche-groesse-btn" onclick="setzeGroesse(15)">
+                        15 L
+                    </button>
+                </div>
+                <div class="col-6 col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100 flasche-groesse-btn" onclick="setzeGroesse(18)">
+                        18 L
+                    </button>
+                </div>
+            </div>
+            <div class="mt-2">
+                <input type="number" class="form-control" id="groesse_liter" name="groesse_liter" 
+                       placeholder="Andere Größe eingeben..." min="1" max="50" step="0.1" required>
+            </div>
+        </div>
+        
+        <!-- Prüfdatum -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="naechste_pruefung" class="form-label required-field">Flaschenprüfung gültig bis</label>
+                    <input type="date" class="form-control form-control-lg" id="naechste_pruefung" name="naechste_pruefung" required>
+                    <div class="form-text">Nächstes TÜV/Prüfdatum der Flasche</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="arbeitsdruck" class="form-label">Arbeitsdruck (bar)</label>
+                    <select class="form-select form-select-lg" id="arbeitsdruck" name="arbeitsdruck">
+                        <option value="200">200 bar</option>
+                        <option value="232" selected>232 bar (Standard)</option>
+                        <option value="300">300 bar</option>
+                        <option value="">Anderer Druck</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- OPTIONALE FELDER -->
+    <div class="form-section">
+        <h5><i class="fas fa-info-circle text-info me-2"></i>Zusätzliche Informationen (optional)</h5>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="externe_nummer" class="form-label">Externe Flaschennummer</label>
+                    <input type="text" class="form-control" id="externe_nummer" name="externe_nummer" 
+                           placeholder="Kundeneigene Nummer">
+                    <div class="form-text">Falls der Kunde eigene Nummern verwendet</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="seriennummer" class="form-label">Seriennummer</label>
+                    <input type="text" class="form-control" id="seriennummer" name="seriennummer" 
+                           placeholder="Hersteller-Seriennummer">
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="bauart_zulassung" class="form-label">Bauart-Zulassungsnummer</label>
+                    <input type="text" class="form-control" id="bauart_zulassung" name="bauart_zulassung" 
+                           placeholder="z.B. UN DOT-3AA-2015">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="hersteller" class="form-label">Hersteller</label>
+                    <select class="form-select" id="hersteller" name="hersteller">
+                        <option value="">-- Auswählen --</option>
+                        <option value="Faber">Faber</option>
+                        <option value="Luxfer">Luxfer</option>
+                        <option value="Catalina">Catalina</option>
+                        <option value="Worthington">Worthington</option>
+                        <option value="Eurocylinder">Eurocylinder</option>
+                        <option value="BTS">BTS</option>
+                        <option value="Andere">Andere</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- VENTIL UND TECHNISCHE DETAILS -->
+    <div class="form-section">
+        <h5><i class="fas fa-cog text-secondary me-2"></i>Technische Details</h5>
+        
+        <!-- Ventiltyp -->
+        <div class="mb-4">
+            <label class="form-label">Ventiltyp</label>
+            <div class="row" id="ventil-options">
+                <div class="col-md-4">
+                    <div class="ventil-option selected" onclick="setzeVentil('Mono')" data-ventil="Mono">
+                        <i class="fas fa-circle fa-2x mb-2 d-block text-center"></i>
+                        <div class="text-center">Mono-Ventil</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="ventil-option" onclick="setzeVentil('Doppel')" data-ventil="Doppel">
+                        <i class="fas fa-compress-alt fa-2x mb-2 d-block text-center"></i>
+                        <div class="text-center">Doppelventil</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="ventil-option" onclick="setzeVentil('Andere')" data-ventil="Andere">
+                        <i class="fas fa-cog fa-2x mb-2 d-block text-center"></i>
+                        <div class="text-center">Andere</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dropdown für andere Ventiltypen -->
+            <div class="mt-3" id="andere-ventiltyp-container" style="display: none;">
+                <div class="input-group">
+                    <select class="form-select" id="ventiltyp-select" onchange="ventiltypAuswaehlen()">
+                        <option value="">-- Ventiltyp wählen --</option>
+                        <option value="DIN-Ventil">DIN-Ventil</option>
+                        <option value="INT-Ventil">INT-Ventil</option>
+                        <option value="Nitrox-Ventil">Nitrox-Ventil</option>
+                        <option value="Trimix-Ventil">Trimix-Ventil</option>
+                        <option value="_neu_">+ Neuer Ventiltyp</option>
+                    </select>
+                    <input type="text" class="form-control" id="ventiltyp-neu" placeholder="Neuer Ventiltyp eingeben..." style="display: none;">
+                </div>
+            </div>
+            <input type="hidden" id="ventiltyp" name="ventiltyp" value="Mono">
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="material" class="form-label">Material</label>
+                    <select class="form-select" id="material" name="material">
+                        <option value="Stahl" selected>Stahl</option>
+                        <option value="Aluminium">Aluminium</option>
+                        <option value="Carbon">Carbon</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="farbe" class="form-label">Farbe/Lackierung</label>
+                    <input type="text" class="form-control" id="farbe" name="farbe" 
+                           placeholder="z.B. gelb, grau, schwarz">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="gewicht_leer" class="form-label">Leergewicht (kg)</label>
+                    <input type="number" class="form-control" id="gewicht_leer" name="gewicht_leer" 
+                           step="0.1" min="0" placeholder="z.B. 14.5">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PRÜFUNGEN UND KONTROLLEN -->
+    <div class="form-section">
+        <h5><i class="fas fa-clipboard-check text-success me-2"></i>Prüfungen und Kontrollen</h5>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="sichtkontrolle_ok" name="sichtkontrolle_ok" checked>
+                    <label class="form-check-label" for="sichtkontrolle_ok">
+                        <i class="fas fa-eye me-2"></i>Sichtkontrolle OK
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="o2_clean" name="o2_clean">
+                    <label class="form-check-label" for="o2_clean">
+                        <i class="fas fa-wind me-2"></i>O2-Clean (Nitrox-tauglich)
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="letzte_inspektion" class="form-label">Letzte Inneninspektion</label>
+                    <input type="date" class="form-control" id="letzte_inspektion" name="letzte_inspektion">
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="bemerkungen" class="form-label">Bemerkungen</label>
+            <textarea class="form-control" id="bemerkungen" name="bemerkungen" rows="3" 
+                      placeholder="Besonderheiten, Schäden, etc."></textarea>
+        </div>
+    </div>
+    
+    <!-- ACTION BUTTONS -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary btn-lg" onclick="window.history.back()">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <div>
+                    <button type="button" class="btn btn-outline-primary btn-lg me-2" onclick="zuruecksetzen()">
+                        <i class="fas fa-redo me-2"></i>Zurücksetzen
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-plus-circle me-2"></i>Flasche hinzufügen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// VEREINFACHTE FLASCHEN-ERFASSUNG
+// ============================================================================
+
+let aktuellerKunde = null;
+let ausgewaehlteGroesse = null;
+let ausgewaehlterVentiltyp = 'Mono';
+let verfuegbareVentiltypen = [];
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    // Kunde aus URL-Parameter laden
+    const urlParams = new URLSearchParams(window.location.search);
+    const kundeId = urlParams.get('kunde_id');
+    
+    if (kundeId) {
+        kundenDatenLaden(kundeId);
+    } else {
+        showErrorMessage('Kein Kunde ausgewählt!');
+        setTimeout(() => {
+            window.location.href = '/flaschen-annehmen';
+        }, 2000);
+    }
+    
+    // Form Submit Handler
+    document.getElementById('flascheHinzufuegenForm').addEventListener('submit', flascheHinzufuegen);
+    
+    // Datum-Vorschläge
+    setzeDatumVorschlaege();
+});
+
+// ============================================================================
+// KUNDEN-DATEN LADEN
+// ============================================================================
+
+async function kundenDatenLaden(kundeId) {
+    try {
+        const response = await fetch(`/api/kunden/${kundeId}`);
+        const result = await response.json();
+        
+        if (result.success && result.kunde) {
+            aktuellerKunde = result.kunde;
+            document.getElementById('kunde_id').value = kundeId;
+            document.getElementById('kunde-name').textContent = 
+                `${aktuellerKunde.vorname} ${aktuellerKunde.nachname || ''}`;
+            document.getElementById('kunde-nummer').textContent = aktuellerKunde.mitgliedsnummer;
+        } else {
+            showErrorMessage(result.error || 'Kunde nicht gefunden!');
+            // Zurück zur Übersicht nach kurzer Verzögerung
+            setTimeout(() => {
+                window.location.href = '/kundenmanager';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Kundendaten:', error);
+        showErrorMessage('Fehler beim Laden der Kundendaten');
+    }
+}
+
+// ============================================================================
+// FORMULAR-FUNKTIONEN
+// ============================================================================
+
+function setzeGroesse(groesse) {
+    ausgewaehlteGroesse = groesse;
+    document.getElementById('groesse_liter').value = groesse;
+    
+    // Buttons aktualisieren
+    document.querySelectorAll('.flasche-groesse-btn').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+    
+    event.target.classList.remove('btn-outline-primary');
+    event.target.classList.add('btn-primary');
+}
+
+function setzeVentil(typ) {
+    // Optionen aktualisieren
+    document.querySelectorAll('.ventil-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    event.currentTarget.classList.add('selected');
+    
+    if (typ === 'Andere') {
+        // Dropdown anzeigen
+        document.getElementById('andere-ventiltyp-container').style.display = 'block';
+        ladeVentiltypen();
+    } else {
+        // Dropdown verstecken
+        document.getElementById('andere-ventiltyp-container').style.display = 'none';
+        ausgewaehlterVentiltyp = typ;
+        document.getElementById('ventiltyp').value = typ;
+    }
+}
+
+function ventiltypAuswaehlen() {
+    const select = document.getElementById('ventiltyp-select');
+    const neuInput = document.getElementById('ventiltyp-neu');
+    
+    if (select.value === '_neu_') {
+        // Neuen Ventiltyp eingeben
+        select.style.display = 'none';
+        neuInput.style.display = 'block';
+        neuInput.focus();
+        
+        // Enter-Taste zum Speichern
+        neuInput.onkeypress = function(e) {
+            if (e.key === 'Enter') {
+                const neuerTyp = neuInput.value.trim();
+                if (neuerTyp) {
+                    ausgewaehlterVentiltyp = neuerTyp;
+                    document.getElementById('ventiltyp').value = neuerTyp;
+                    
+                    // Zur Liste hinzufügen für zukünftige Verwendung
+                    speichereNeuenVentiltyp(neuerTyp);
+                    
+                    showSuccessMessage('Neuer Ventiltyp gespeichert: ' + neuerTyp);
+                }
+            }
+        };
+    } else if (select.value) {
+        ausgewaehlterVentiltyp = select.value;
+        document.getElementById('ventiltyp').value = select.value;
+    }
+}
+
+async function ladeVentiltypen() {
+    try {
+        // Ventiltypen aus der Datenbank laden
+        const response = await fetch('/api/flaschen/ventiltypen');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.ventiltypen) {
+                aktualisiereVentiltypDropdown(data.ventiltypen);
+            }
+        }
+    } catch (error) {
+        console.log('Fehler beim Laden der Ventiltypen:', error);
+    }
+}
+
+function aktualisiereVentiltypDropdown(typen) {
+    const select = document.getElementById('ventiltyp-select');
+    
+    // Aktuelle Auswahl merken
+    const aktuelleAuswahl = select.value;
+    
+    // Dropdown neu aufbauen
+    select.innerHTML = `
+        <option value="">-- Ventiltyp wählen --</option>
+        <option value="DIN-Ventil">DIN-Ventil</option>
+        <option value="INT-Ventil">INT-Ventil</option>
+        <option value="Nitrox-Ventil">Nitrox-Ventil</option>
+        <option value="Trimix-Ventil">Trimix-Ventil</option>
+    `;
+    
+    // Dynamische Typen aus DB hinzufügen
+    typen.forEach(typ => {
+        if (!['Mono', 'Doppel', 'DIN-Ventil', 'INT-Ventil', 'Nitrox-Ventil', 'Trimix-Ventil'].includes(typ)) {
+            select.innerHTML += `<option value="${typ}">${typ}</option>`;
+        }
+    });
+    
+    select.innerHTML += '<option value="_neu_">+ Neuer Ventiltyp</option>';
+    
+    // Auswahl wiederherstellen
+    select.value = aktuelleAuswahl;
+}
+
+async function speichereNeuenVentiltyp(typ) {
+    try {
+        await fetch('/api/flaschen/ventiltyp/neu', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ventiltyp: typ })
+        });
+    } catch (error) {
+        console.log('Fehler beim Speichern des Ventiltyps:', error);
+    }
+}
+
+function setzeDatumVorschlaege() {
+    // Prüfdatum: Standard 2.5 Jahre in der Zukunft
+    const heute = new Date();
+    const pruefDatum = new Date(heute);
+    pruefDatum.setMonth(pruefDatum.getMonth() + 30); // 2.5 Jahre
+    
+    document.getElementById('naechste_pruefung').value = pruefDatum.toISOString().split('T')[0];
+}
+
+function zuruecksetzen() {
+    if (confirm('Alle Eingaben zurücksetzen?')) {
+        document.getElementById('flascheHinzufuegenForm').reset();
+        setzeDatumVorschlaege();
+        
+        // Buttons zurücksetzen
+        document.querySelectorAll('.flasche-groesse-btn').forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        
+        document.querySelectorAll('.ventil-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+    }
+}
+
+// ============================================================================
+// FLASCHE HINZUFÜGEN
+// ============================================================================
+
+async function flascheHinzufuegen(e) {
+    e.preventDefault();
+    
+    // Validierung
+    const groesse = document.getElementById('groesse_liter').value;
+    const pruefDatum = document.getElementById('naechste_pruefung').value;
+    
+    if (!groesse || !pruefDatum) {
+        showErrorMessage('Bitte Pflichtfelder ausfüllen!');
+        return;
+    }
+    
+    // Daten sammeln
+    const flaschenDaten = {
+        kunde_id: parseInt(document.getElementById('kunde_id').value),
+        groesse_liter: parseFloat(groesse),
+        naechste_pruefung: pruefDatum,
+        max_druck_bar: parseInt(document.getElementById('arbeitsdruck').value) || 232,
+        
+        // Optionale Felder
+        externe_flasche_nummer: document.getElementById('externe_nummer').value || null,
+        seriennummer: document.getElementById('seriennummer').value || null,
+        bauart_zulassung: document.getElementById('bauart_zulassung').value || null,
+        hersteller: document.getElementById('hersteller').value || null,
+        
+        // Technische Details
+        ventiltyp: document.getElementById('ventiltyp').value,
+        flaschen_typ: document.getElementById('material').value || 'Stahl',
+        farbe: document.getElementById('farbe').value || null,
+        gewicht_leer: parseFloat(document.getElementById('gewicht_leer').value) || null,
+        
+        // Prüfungen
+        sichtkontrolle_ok: document.getElementById('sichtkontrolle_ok').checked,
+        o2_clean: document.getElementById('o2_clean').checked,
+        letzte_inspektion: document.getElementById('letzte_inspektion').value || null,
+        
+        notizen: document.getElementById('bemerkungen').value || null
+    };
+    
+    try {
+        showLoadingState('Flasche wird hinzugefügt...');
+        
+        // Flasche erstellen
+        const response = await fetch('/api/flaschen/erstellen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(flaschenDaten)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage(`Flasche ${result.flasche.flasche_nummer} erfolgreich hinzugefügt!`);
+            
+            // Zur Warteliste hinzufügen?
+            if (confirm('Flasche direkt zur Warteliste hinzufügen?')) {
+                await zurWartelisteHinzufuegen(result.flasche.id);
+            } else {
+                // Zurück zur Übersicht
+                setTimeout(() => {
+                    window.location.href = `/kunden-details?kunde_id=${aktuellerKunde.id}`;
+                }, 1500);
+            }
+        } else {
+            showErrorMessage('Fehler: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Hinzufügen der Flasche:', error);
+        showErrorMessage('Netzwerkfehler beim Hinzufügen');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+async function zurWartelisteHinzufuegen(flascheId) {
+    try {
+        const response = await fetch('/api/warteliste/hinzufuegen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                flasche_id: flascheId,
+                kunde_id: aktuellerKunde.id,
+                prioritaet: 'Normal',
+                hinzugefuegt_von: 'Flaschen-Annahme'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Flasche zur Warteliste hinzugefügt!');
+            
+            // Zum Füll-Center
+            setTimeout(() => {
+                window.location.href = '/fuell-center';
+            }, 1500);
+        } else {
+            showErrorMessage('Fehler beim Hinzufügen zur Warteliste: ' + result.error);
+            // Trotzdem zur Kundenübersicht
+            setTimeout(() => {
+                window.location.href = `/kunden-details?kunde_id=${aktuellerKunde.id}`;
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('Fehler:', error);
+        showErrorMessage('Fehler beim Hinzufügen zur Warteliste');
+    }
+}
+
+// ============================================================================
+// UI HELPER FUNKTIONEN
+// ============================================================================
+
+function showLoadingState(message) {
+    // Formular deaktivieren
+    document.querySelectorAll('button, input, select, textarea').forEach(el => {
+        el.disabled = true;
+    });
+    
+    showInfoMessage(message);
+}
+
+function hideLoadingState() {
+    // Formular aktivieren
+    document.querySelectorAll('button, input, select, textarea').forEach(el => {
+        el.disabled = false;
+    });
+}
+
+// ============================================================================
+// TOAST-SYSTEM
+// ============================================================================
+
+function showToast(message, type = 'info', duration = 5000) {
+    const toastContainer = document.getElementById('toast-container');
+    const toastId = 'toast-' + Date.now();
+    
+    let icon = '';
+    let bgClass = '';
+    
+    switch(type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle me-2"></i>';
+            bgClass = 'bg-success';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-triangle me-2"></i>';
+            bgClass = 'bg-danger';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-circle me-2"></i>';
+            bgClass = 'bg-warning text-dark';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle me-2"></i>';
+            bgClass = 'bg-info';
+    }
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${icon}${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const bsToast = new bootstrap.Toast(toastElement, { delay: duration });
+    
+    bsToast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+function showSuccessMessage(message) {
+    showToast(message, 'success');
+}
+
+function showErrorMessage(message) {
+    showToast(message, 'error');
+}
+
+function showInfoMessage(message) {
+    showToast(message, 'info');
+}
+</script>
+{% endblock %}

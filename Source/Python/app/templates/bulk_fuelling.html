@@ -1,0 +1,852 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk-Füllung - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Flaschen-Füllen Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-4 text-center mb-4">
+            <i class="fas fa-fill-drip me-3"></i>Flaschen Füllen
+        </h1>
+        <p class="text-center text-muted fs-5">Flaschen aus der Warteliste füllen</p>
+    </div>
+</div>
+
+<!-- Kompressor Status Check -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-warning" id="kompressor-check">
+            <div class="card-body text-center">
+                <div id="kompressor-status-bulk">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Kompressor-Status wird geprüft...</span>
+                    </div>
+                    <p class="mt-2">Kompressor-Status wird geprüft...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Warteliste laden und anzeigen -->
+<div class="row mb-4" id="warteliste-container">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clipboard-list me-2"></i>Warteliste - Zu füllende Flaschen
+                        </h5>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-dark btn-sm me-2" onclick="wartelisteAktualisieren()">
+                            <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                        </button>
+                        <span class="badge bg-primary" id="warteliste-count">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="warteliste-content">
+                    <!-- Wird dynamisch geladen -->
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Warteliste wird geladen...</span>
+                        </div>
+                        <p class="mt-2">Warteliste wird geladen...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Füll-Prozess Interface (wird angezeigt wenn Flasche ausgewählt) -->
+<div class="row mb-4" id="fuell-interface" style="display: none;">
+    <div class="col-12">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-fill-drip me-2"></i>Flasche füllen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-wine-bottle me-2"></i>Ausgewählte Flasche:</h6>
+                            <p class="mb-1"><strong>Nummer:</strong> <span id="selected-flasche-nummer">-</span></p>
+                            <p class="mb-1"><strong>Kunde:</strong> <span id="selected-kunde-name">-</span></p>
+                            <p class="mb-1"><strong>Gewünschter Druck:</strong> <span id="selected-druck">-</span> bar</p>
+                            <p class="mb-0"><strong>Besonderheiten:</strong> <span id="selected-besonderheiten">-</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <form id="fuellForm">
+                            <div class="mb-3">
+                                <label for="fueller" class="form-label fw-bold">Füller/Operator:</label>
+                                <input type="text" class="form-control form-control-lg" id="fueller" 
+                                       placeholder="Ihr Name" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="luftgemisch" class="form-label fw-bold">Luftgemisch:</label>
+                                <select class="form-select form-select-lg" id="luftgemisch">
+                                    <option value="Luft" selected>Luft (21% O2)</option>
+                                    <option value="Nitrox 32">Nitrox 32% O2</option>
+                                    <option value="Nitrox 36">Nitrox 36% O2</option>
+                                    <option value="Nitrox 40">Nitrox 40% O2</option>
+                                    <option value="Andere">Andere (eingeben)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3" id="andere-gemisch-container" style="display: none;">
+                                <label for="andere-gemisch" class="form-label">Luftgemisch eingeben:</label>
+                                <input type="text" class="form-control" id="andere-gemisch" 
+                                       placeholder="z.B. Nitrox 28%">
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-success btn-lg" onclick="fuellvorgangStarten()">
+                                    <i class="fas fa-play me-2"></i>Füllvorgang starten
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="flaschenAuswahlAbbrechen()">
+                                    <i class="fas fa-times me-2"></i>Abbrechen
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aktive Füllvorgänge -->
+<div class="row mb-4" id="aktive-fuellvorgaenge-container" style="display: none;">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-tasks me-2"></i>Aktive Füllvorgänge
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="aktive-fuellvorgaenge-content">
+                    <!-- Wird dynamisch geladen -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div class="row">
+    <div class="col-12 text-center">
+        <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-touch">
+            <i class="fas fa-arrow-left me-2"></i>Zurück zum Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Kunden-Modal -->
+<div class="modal fade" id="kundenModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>Kunde für Flasche auswählen/anlegen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="kundenSuche" class="form-label">Kunde suchen:</label>
+                    <input type="text" class="form-control" id="kundenSuche" 
+                           placeholder="Name, Telefon oder E-Mail" onkeyup="sucheKunden()">
+                </div>
+                
+                <div id="kundenSuchergebnisse" class="mb-3">
+                    <!-- Suchergebnisse hier -->
+                </div>
+                
+                <hr>
+                
+                <h6>Neuen Kunden anlegen:</h6>
+                <form id="neuerKundeForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="kundeVorname" class="form-label">Vorname:</label>
+                                <input type="text" class="form-control" id="kundeVorname" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="kundeNachname" class="form-label">Nachname:</label>
+                                <input type="text" class="form-control" id="kundeNachname" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="kundeTelefon" class="form-label">Telefon:</label>
+                                <input type="tel" class="form-control" id="kundeTelefon">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="kundeEmail" class="form-label">E-Mail:</label>
+                                <input type="email" class="form-control" id="kundeEmail">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-success w-100" onclick="neuerKundeAnlegen()">
+                        <i class="fas fa-user-plus me-2"></i>Kunde anlegen und Flasche zuweisen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// BULK-FÜLLUNG JAVASCRIPT
+// ============================================================================
+
+let aktuellerBulkVorgang = null;
+let flaschenListe = [];
+let selectedFlasche = null;
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    prueferKompressorStatus();
+    ladeBulkStatus();
+    
+    // Status alle 30 Sekunden aktualisieren
+    setInterval(() => {
+        ladeBulkStatus();
+        if (aktuellerBulkVorgang) {
+            updateFortschritt();
+        }
+    }, 30000);
+});
+
+// ============================================================================
+// KOMPRESSOR STATUS PRÜFUNG
+// ============================================================================
+
+async function prueferKompressorStatus() {
+    try {
+        const response = await fetch('/api/kompressor/status');
+        const data = await response.json();
+        
+        const statusElement = document.getElementById('kompressor-status-bulk');
+        
+        if (data.ist_an) {
+            statusElement.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    <h5>Kompressor läuft</h5>
+                    <p>Füller: ${data.aktiver_kompressor.fueller}</p>
+                    <p class="mb-0">Bulk-Füllung kann gestartet werden</p>
+                </div>
+            `;
+            document.getElementById('bulk-controls').style.display = 'block';
+        } else {
+            statusElement.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <h5>Kompressor ist ausgeschaltet</h5>
+                    <p class="mb-0">Bitte starten Sie zuerst den Kompressor im Dashboard</p>
+                    <a href="${window.location.origin}" class="btn btn-primary mt-2">
+                        <i class="fas fa-home me-1"></i>Zum Dashboard
+                    </a>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Fehler beim Kompressor-Status:', error);
+        document.getElementById('kompressor-status-bulk').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-times-circle fa-2x mb-2"></i>
+                <h5>Fehler beim Status-Check</h5>
+                <p class="mb-0">Kompressor-Status konnte nicht abgerufen werden</p>
+            </div>
+        `;
+    }
+}
+
+// ============================================================================
+// BULK-VORGANG MANAGEMENT
+// ============================================================================
+
+async function startBulkVorgang() {
+    const operator = document.getElementById('bulkOperator').value.trim();
+    
+    if (!operator) {
+        alert('Bitte geben Sie Ihren Namen als Operator ein!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/kompressor/bulk/erstellen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                operator: operator
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            aktuellerBulkVorgang = result.bulk_vorgang;
+            showSuccessMessage('Bulk-Vorgang erfolgreich gestartet!');
+            updateBulkUI();
+        } else {
+            showErrorMessage('Fehler beim Starten: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Bulk-Start:', error);
+        showErrorMessage('Netzwerkfehler beim Starten des Bulk-Vorgangs');
+    }
+}
+
+async function ladeBulkStatus() {
+    try {
+        const response = await fetch('/api/kompressor/bulk/status');
+        const data = await response.json();
+        
+        if (data.hat_aktiven_bulk) {
+            aktuellerBulkVorgang = data.bulk_vorgang;
+            updateBulkUI();
+        } else {
+            aktuellerBulkVorgang = null;
+            updateBulkUI();
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Bulk-Status:', error);
+    }
+}
+
+function updateBulkUI() {
+    const aktiverCard = document.getElementById('aktiver-bulk-card');
+    const flaschenManagement = document.getElementById('flaschen-management');
+    const flaschenListeContainer = document.getElementById('flaschen-liste-container');
+    
+    if (aktuellerBulkVorgang) {
+        // Aktiver Bulk-Vorgang anzeigen
+        document.getElementById('bulk-operator-name').textContent = aktuellerBulkVorgang.operator;
+        document.getElementById('bulk-start-time').textContent = 
+            new Date(aktuellerBulkVorgang.start_zeit).toLocaleString('de-DE');
+        document.getElementById('bulk-flaschen-count').textContent = aktuellerBulkVorgang.flaschen_count || 0;
+        
+        aktiverCard.style.display = 'block';
+        flaschenManagement.style.display = 'block';
+        flaschenListeContainer.style.display = 'block';
+        
+        // Flaschen-Liste laden
+        ladeFlaschenListe();
+        
+    } else {
+        // Kein aktiver Bulk-Vorgang
+        aktiverCard.style.display = 'none';
+        flaschenManagement.style.display = 'none';
+        flaschenListeContainer.style.display = 'none';
+    }
+}
+
+// ============================================================================
+// FLASCHEN MANAGEMENT
+// ============================================================================
+
+function handleBarcodeInput(event) {
+    if (event.key === 'Enter') {
+        flascheFuegen();
+    }
+}
+
+async function flascheFuegen() {
+    const barcode = document.getElementById('flaschenBarcode').value.trim();
+    const zielDruck = document.getElementById('zielDruck').value;
+    
+    if (!barcode) {
+        alert('Bitte Barcode oder Flaschennummer eingeben!');
+        return;
+    }
+    
+    if (!aktuellerBulkVorgang) {
+        alert('Bitte starten Sie zuerst einen Bulk-Vorgang!');
+        return;
+    }
+    
+    try {
+        // Erst prüfen ob Flasche existiert
+        const response = await fetch(`/api/kompressor/flaschen/barcode/${barcode}`);
+        const result = await response.json();
+        
+        if (result.found) {
+            // Flasche existiert - direkt hinzufügen
+            await flascheDirektHinzufuegen(result.flasche.id, zielDruck);
+        } else {
+            // Flasche existiert nicht - neue anlegen
+            await neueFlascheAnlegen(barcode, zielDruck);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Flaschen-Scan:', error);
+        showErrorMessage('Fehler beim Scannen der Flasche');
+    }
+}
+
+async function flascheDirektHinzufuegen(flascheId, zielDruck) {
+    try {
+        const response = await fetch(`/api/kompressor/bulk/${aktuellerBulkVorgang.id}/flasche/hinzufuegen`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                flasche_id: flascheId,
+                ziel_druck: parseInt(zielDruck)
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Flasche erfolgreich hinzugefügt!');
+            document.getElementById('flaschenBarcode').value = '';
+            ladeFlaschenListe();
+        } else {
+            showErrorMessage('Fehler beim Hinzufügen: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Hinzufügen:', error);
+        showErrorMessage('Netzwerkfehler beim Hinzufügen der Flasche');
+    }
+}
+
+async function neueFlascheAnlegen(barcode, zielDruck) {
+    selectedFlasche = { barcode: barcode, zielDruck: zielDruck };
+    
+    // Kunden-Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('kundenModal'));
+    modal.show();
+    
+    // Eingabefelder leeren
+    document.getElementById('kundenSuche').value = '';
+    document.getElementById('kundenSuchergebnisse').innerHTML = '';
+    document.getElementById('neuerKundeForm').reset();
+}
+
+async function ladeFlaschenListe() {
+    if (!aktuellerBulkVorgang) return;
+    
+    try {
+        const response = await fetch(`/api/kompressor/bulk/status`);
+        const data = await response.json();
+        
+        if (data.hat_aktiven_bulk && data.bulk_vorgang.flaschen) {
+            flaschenListe = data.bulk_vorgang.flaschen;
+            renderFlaschenListe();
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Flaschen-Liste:', error);
+    }
+}
+
+function renderFlaschenListe() {
+    const container = document.getElementById('flaschen-liste');
+    const bulkActions = document.getElementById('bulk-actions');
+    
+    container.innerHTML = '';
+    
+    if (flaschenListe.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted">Noch keine Flaschen hinzugefügt</div>';
+        bulkActions.style.display = 'none';
+        return;
+    }
+    
+    flaschenListe.forEach(flasche => {
+        const flascheDiv = document.createElement('div');
+        flascheDiv.className = 'col-md-4 mb-3';
+        
+        let statusClass = 'border-secondary';
+        let statusIcon = 'fas fa-clock';
+        let statusText = 'Bereit';
+        
+        if (flasche.status === 'gefuellt') {
+            statusClass = 'border-success';
+            statusIcon = 'fas fa-check-circle text-success';
+            statusText = 'Gefüllt';
+        } else if (flasche.status === 'fehlgeschlagen') {
+            statusClass = 'border-danger';
+            statusIcon = 'fas fa-times-circle text-danger';
+            statusText = 'Fehlgeschlagen';
+        } else if (flasche.status === 'laufend') {
+            statusClass = 'border-warning';
+            statusIcon = 'fas fa-spinner fa-spin text-warning';
+            statusText = 'Wird gefüllt';
+        }
+        
+        flascheDiv.innerHTML = `
+            <div class="card ${statusClass}">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="${statusIcon} me-2"></i>
+                        Flasche ${flasche.flasche_nummer || flasche.barcode}
+                    </h6>
+                    <p class="card-text">
+                        <strong>Kunde:</strong> ${flasche.kunde_name || 'Unbekannt'}<br>
+                        <strong>Ziel:</strong> ${flasche.ziel_druck} bar<br>
+                        <strong>Status:</strong> ${statusText}
+                    </p>
+                    ${flasche.status === 'bereit' ? `
+                        <button class="btn btn-sm btn-danger" onclick="flascheEntfernen(${flasche.id})">
+                            <i class="fas fa-trash me-1"></i>Entfernen
+                        </button>
+                    ` : ''}
+                    ${flasche.status === 'laufend' ? `
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-sm btn-success" onclick="flascheGefuellt(${flasche.id})">
+                                <i class="fas fa-check me-1"></i>Gefüllt
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="flascheFehlgeschlagen(${flasche.id})">
+                                <i class="fas fa-times me-1"></i>Fehler
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(flascheDiv);
+    });
+    
+    bulkActions.style.display = 'block';
+}
+
+// ============================================================================
+// KUNDEN MANAGEMENT
+// ============================================================================
+
+async function sucheKunden() {
+    const suchbegriff = document.getElementById('kundenSuche').value.trim();
+    
+    if (suchbegriff.length < 2) {
+        document.getElementById('kundenSuchergebnisse').innerHTML = '';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/kompressor/kunden/suchen?q=${encodeURIComponent(suchbegriff)}`);
+        const result = await response.json();
+        
+        const container = document.getElementById('kundenSuchergebnisse');
+        
+        if (result.kunden && result.kunden.length > 0) {
+            let html = '<h6>Gefundene Kunden:</h6>';
+            result.kunden.forEach(kunde => {
+                html += `
+                    <div class="border rounded p-2 mb-2 kunde-item" style="cursor: pointer;" 
+                         onclick="kundeAuswaehlen(${kunde.id}, '${kunde.vorname} ${kunde.nachname}')">
+                        <strong>${kunde.vorname} ${kunde.nachname}</strong><br>
+                        <small class="text-muted">${kunde.telefon || ''} ${kunde.email || ''}</small>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<div class="text-muted">Keine Kunden gefunden</div>';
+        }
+        
+    } catch (error) {
+        console.error('Fehler bei Kunden-Suche:', error);
+    }
+}
+
+async function kundeAuswaehlen(kundeId, kundeName) {
+    if (!selectedFlasche) return;
+    
+    try {
+        // Neue Flasche mit Kunde erstellen
+        const response = await fetch('/api/kompressor/flaschen/erstellen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                kunde_id: kundeId,
+                barcode: selectedFlasche.barcode,
+                flasche_nummer: selectedFlasche.barcode
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Flasche zu Bulk-Vorgang hinzufügen
+            await flascheDirektHinzufuegen(result.flasche.id, selectedFlasche.zielDruck);
+            
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('kundenModal'));
+            modal.hide();
+            
+            selectedFlasche = null;
+        } else {
+            showErrorMessage('Fehler beim Erstellen der Flasche: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Kunde auswählen:', error);
+        showErrorMessage('Netzwerkfehler beim Erstellen der Flasche');
+    }
+}
+
+async function neuerKundeAnlegen() {
+    const vorname = document.getElementById('kundeVorname').value.trim();
+    const nachname = document.getElementById('kundeNachname').value.trim();
+    const telefon = document.getElementById('kundeTelefon').value.trim();
+    const email = document.getElementById('kundeEmail').value.trim();
+    
+    if (!vorname || !nachname) {
+        alert('Vor- und Nachname sind erforderlich!');
+        return;
+    }
+    
+    try {
+        // Neuen Kunden erstellen
+        const kundeResponse = await fetch('/api/kompressor/kunden/quick', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                vorname: vorname,
+                nachname: nachname,
+                telefon: telefon,
+                email: email
+            })
+        });
+        
+        const kundeResult = await kundeResponse.json();
+        
+        if (kundeResult.success) {
+            await kundeAuswaehlen(kundeResult.kunde.id, `${vorname} ${nachname}`);
+        } else {
+            showErrorMessage('Fehler beim Anlegen des Kunden: ' + kundeResult.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Kunde anlegen:', error);
+        showErrorMessage('Netzwerkfehler beim Anlegen des Kunden');
+    }
+}
+
+// ============================================================================
+// FÜLL-PROZESS
+// ============================================================================
+
+async function starteFuellung() {
+    if (!aktuellerBulkVorgang || flaschenListe.length === 0) {
+        alert('Keine Flaschen zum Füllen vorhanden!');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/kompressor/bulk/${aktuellerBulkVorgang.id}/starten`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Füllung gestartet!');
+            document.getElementById('fortschritt-container').style.display = 'block';
+            ladeFlaschenListe();
+            updateFortschritt();
+        } else {
+            showErrorMessage('Fehler beim Starten: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Füllung starten:', error);
+        showErrorMessage('Netzwerkfehler beim Starten der Füllung');
+    }
+}
+
+async function flascheGefuellt(flascheId) {
+    const druck = prompt('Erreichter Druck (bar):', '300');
+    if (!druck) return;
+    
+    try {
+        const response = await fetch(`/api/kompressor/bulk/${aktuellerBulkVorgang.id}/flasche/${flascheId}/gefuellt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                erreicher_druck: parseInt(druck)
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Flasche als gefüllt markiert!');
+            ladeFlaschenListe();
+            updateFortschritt();
+        } else {
+            showErrorMessage('Fehler: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Markieren als gefüllt:', error);
+        showErrorMessage('Netzwerkfehler');
+    }
+}
+
+async function flascheFehlgeschlagen(flascheId) {
+    const grund = prompt('Grund für Fehlschlag:', 'Technischer Defekt');
+    if (!grund) return;
+    
+    try {
+        const response = await fetch(`/api/kompressor/bulk/${aktuellerBulkVorgang.id}/flasche/${flascheId}/fehlgeschlagen`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                grund: grund
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Flasche als fehlgeschlagen markiert!');
+            ladeFlaschenListe();
+            updateFortschritt();
+        } else {
+            showErrorMessage('Fehler: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Markieren als fehlgeschlagen:', error);
+        showErrorMessage('Netzwerkfehler');
+    }
+}
+
+function updateFortschritt() {
+    if (!flaschenListe.length) return;
+    
+    const abgeschlossen = flaschenListe.filter(f => f.status === 'gefuellt' || f.status === 'fehlgeschlagen').length;
+    const prozent = (abgeschlossen / flaschenListe.length) * 100;
+    
+    document.getElementById('fortschritt-bar').style.width = prozent + '%';
+    document.getElementById('fortschritt-text').textContent = Math.round(prozent) + '%';
+    
+    // Wenn alle abgeschlossen, Bulk-Vorgang automatisch beenden
+    if (abgeschlossen === flaschenListe.length && aktuellerBulkVorgang) {
+        setTimeout(() => {
+            if (confirm('Alle Flaschen abgearbeitet. Bulk-Vorgang automatisch beenden?')) {
+                beendeBulkVorgang();
+            }
+        }, 2000);
+    }
+}
+
+// ============================================================================
+// UTILITY FUNKTIONEN
+// ============================================================================
+
+async function flascheEntfernen(flascheId) {
+    if (!confirm('Flasche wirklich aus dem Bulk-Vorgang entfernen?')) return;
+    
+    try {
+        const response = await fetch(`/api/kompressor/bulk/${aktuellerBulkVorgang.id}/flasche/${flascheId}/entfernen`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Flasche entfernt!');
+            ladeFlaschenListe();
+        } else {
+            showErrorMessage('Fehler beim Entfernen: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Entfernen:', error);
+        showErrorMessage('Netzwerkfehler beim Entfernen');
+    }
+}
+
+async function alleFlaschenEntfernen() {
+    if (!confirm('Wirklich alle Flaschen aus dem Bulk-Vorgang entfernen?')) return;
+    
+    for (const flasche of flaschenListe) {
+        if (flasche.status === 'bereit') {
+            await flascheEntfernen(flasche.id);
+        }
+    }
+}
+
+async function beendeBulkVorgang() {
+    if (!confirm('Bulk-Vorgang wirklich beenden?')) return;
+    
+    try {
+        const response = await fetch(`/api/kompressor/bulk/${aktuellerBulkVorgang.id}/beenden`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                notizen: 'Bulk-Vorgang über Interface beendet'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Bulk-Vorgang erfolgreich beendet!');
+            aktuellerBulkVorgang = null;
+            flaschenListe = [];
+            updateBulkUI();
+            document.getElementById('fortschritt-container').style.display = 'none';
+        } else {
+            showErrorMessage('Fehler beim Beenden: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Beenden:', error);
+        showErrorMessage('Netzwerkfehler beim Beenden');
+    }
+}
+
+function showSuccessMessage(message) {
+    alert('✅ ' + message);
+}
+
+function showErrorMessage(message) {
+    alert('❌ ' + message);
+}
+</script>
+{% endblock %}

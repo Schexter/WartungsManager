@@ -1,0 +1,99 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+wartung_env/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Flask
+instance/
+.webassets-cache
+
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+*.db.backup*
+database/backups/*.db
+
+# Logs
+*.log
+logs/
+Logs/error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backups
+*.bak
+*.backup
+*_backup.*
+
+# Installer specific
+installer/*.url
+installer/zugriff_auf_kasse.bat
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+wartung_env/
+env/
+venv/
+
+# Chats (optional - entfernen wenn du sie tracken willst)
+# Chats/
+# chats/
+
+# Projekt-spezifisch - behalte nur wichtige Konfigurationen
+config/__pycache__/
+Source/Python/app/__pycache__/
+Source/Python/app/forms/__pycache__/
+Source/Python/app/models/__pycache__/
+Source/Python/app/routes/__pycache__/
+Source/Python/app/services/__pycache__/
+Source/Python/config/__pycache__/
+Source/Python/migrations/__pycache__/
+Source/Python/database/wartungsmanager.db
+Source/Python/database/backups/
+
+# K14 Unterlagen (PDFs sind bereits im Repo, sollten aber nicht geändert werden)
+# K14 Unterlagen/
+
+Erstellt von Hans Hahn - Alle Rechte vorbehalten

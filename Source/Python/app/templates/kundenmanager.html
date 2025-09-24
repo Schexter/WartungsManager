@@ -1,0 +1,688 @@
+{% extends "base.html" %}
+
+{% block title %}Kundenmanager - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Kunden-Manager Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-4 text-center mb-4">
+            <i class="fas fa-users me-3"></i>Kundenmanager
+        </h1>
+        <p class="text-center text-muted fs-5">Alle Kunden verwalten und einsehen</p>
+    </div>
+</div>
+
+<!-- Suchbereich -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-search me-2"></i>Kunden suchen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <input type="text" class="form-control form-control-lg" id="kundenSuche" 
+                               placeholder="Name, Telefon, E-Mail oder Mitgliedsnummer eingeben..." 
+                               onkeyup="sucheKunden()">
+                    </div>
+                    <div class="col-md-4">
+                        <div class="btn-group w-100">
+                            <button class="btn btn-success btn-lg" onclick="neuerKunde()">
+                                <i class="fas fa-user-plus me-2"></i>Neuer Kunde
+                            </button>
+                            <button class="btn btn-outline-info btn-lg" onclick="exportAlleKunden()">
+                                <i class="fas fa-download me-2"></i>Alle exportieren
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary text-center">
+            <div class="card-body">
+                <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                <h5>Alle Kunden</h5>
+                <h2 class="text-primary" id="stat-alle-kunden">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-success text-center">
+            <div class="card-body">
+                <i class="fas fa-user-check fa-3x text-success mb-3"></i>
+                <h5>Aktive Kunden</h5>
+                <h2 class="text-success" id="stat-aktive-kunden">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-warning text-center">
+            <div class="card-body">
+                <i class="fas fa-wine-bottle fa-3x text-warning mb-3"></i>
+                <h5>Kunden mit Flaschen</h5>
+                <h2 class="text-warning" id="stat-kunden-mit-flaschen">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-danger text-center">
+            <div class="card-body">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5>Prüfungen fällig</h5>
+                <h2 class="text-danger" id="stat-pruefungen-faellig">0</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter und Aktionen -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h5 class="mb-0">
+                            <i class="fas fa-filter me-2"></i>Filter und Ansicht
+                        </h5>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm active" onclick="filterKunden('alle')">
+                                Alle (<span id="count-alle">0</span>)
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" onclick="filterKunden('aktiv')">
+                                Aktive (<span id="count-aktive">0</span>)
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="filterKunden('inaktiv')">
+                                Inaktive (<span id="count-inaktive">0</span>)
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" onclick="filterKunden('pruefung_faellig')">
+                                Prüfungen fällig (<span id="count-pruefung">0</span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kunden-Liste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list me-2"></i>Kunden-Übersicht
+                        </h5>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="sortieren('name')">
+                                <i class="fas fa-sort-alpha-down me-1"></i>Name
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="sortieren('mitgliedsnummer')">
+                                <i class="fas fa-sort-numeric-down me-1"></i>Nummer
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="sortieren('erstellt')">
+                                <i class="fas fa-sort me-1"></i>Erstellt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="kunden-liste">
+                    <!-- Wird dynamisch geladen -->
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Kunden werden geladen...</span>
+                        </div>
+                        <p class="mt-2">Kunden werden geladen...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Neuer Kunde Modal -->
+<div class="modal fade" id="neuerKundeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>Neuen Kunden anlegen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="neuerKundeForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="neu-vorname" class="form-label">Vorname <span class="text-danger">*</span>:</label>
+                                <input type="text" class="form-control" id="neu-vorname" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="neu-nachname" class="form-label">Nachname:</label>
+                                <input type="text" class="form-control" id="neu-nachname">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="neu-telefon" class="form-label">Telefon:</label>
+                                <input type="tel" class="form-control" id="neu-telefon" placeholder="+49 123 456789">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="neu-email" class="form-label">E-Mail:</label>
+                                <input type="email" class="form-control" id="neu-email" placeholder="kunde@beispiel.de">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="neu-firma" class="form-label">Firma:</label>
+                                <input type="text" class="form-control" id="neu-firma">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="neu-externe-nummer" class="form-label">Externe Nummer:</label>
+                                <input type="text" class="form-control" id="neu-externe-nummer" placeholder="z.B. Vereins-ID">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="neu-adresse" class="form-label">Adresse:</label>
+                                <textarea class="form-control" id="neu-adresse" rows="3" placeholder="Straße, PLZ Ort"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-success" onclick="kundenSpeichern()">
+                    <i class="fas fa-save me-2"></i>Kunde anlegen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// KUNDENMANAGER JAVASCRIPT
+// ============================================================================
+
+let alleKunden = [];
+let gefilterte_kunden = [];
+let aktuellerFilter = 'alle';
+let aktuellesSortierung = 'name';
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    kundenLaden();
+    statistikenLaden();
+    
+    // Auto-refresh alle 2 Minuten
+    setInterval(() => {
+        kundenLaden();
+        statistikenLaden();
+    }, 120000);
+});
+
+// ============================================================================
+// KUNDEN LADEN UND ANZEIGEN
+// ============================================================================
+
+async function kundenLaden() {
+    try {
+        const response = await fetch('/api/kunden/alle');
+        const result = await response.json();
+        
+        if (result.success) {
+            alleKunden = result.kunden;
+            gefilterte_kunden = [...alleKunden];
+            
+            // Statistiken aktualisieren
+            updateKundenCounts();
+            
+            // Liste rendern
+            renderKundenListe();
+        } else {
+            showErrorMessage('Fehler beim Laden der Kunden: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Kunden:', error);
+        document.getElementById('kunden-liste').innerHTML = 
+            '<div class="text-danger text-center p-4">Fehler beim Laden der Kunden</div>';
+    }
+}
+
+function renderKundenListe() {
+    const container = document.getElementById('kunden-liste');
+    
+    if (gefilterte_kunden.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Keine Kunden gefunden</h5>
+                <p class="text-muted">Keine Kunden entsprechen den aktuellen Filterkriterien</p>
+                <button class="btn btn-primary" onclick="neuerKunde()">
+                    <i class="fas fa-user-plus me-2"></i>Ersten Kunden anlegen
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += `
+        <table class="table table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="fas fa-user me-1"></i>Name</th>
+                    <th><i class="fas fa-id-card me-1"></i>Mitgliedsnummer</th>
+                    <th><i class="fas fa-phone me-1"></i>Kontakt</th>
+                    <th><i class="fas fa-wine-bottle me-1"></i>Flaschen</th>
+                    <th><i class="fas fa-info-circle me-1"></i>Status</th>
+                    <th><i class="fas fa-calendar me-1"></i>Seit</th>
+                    <th><i class="fas fa-tools me-1"></i>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    gefilterte_kunden.forEach(kunde => {
+        const vollname = `${kunde.vorname} ${kunde.nachname || ''}`.trim();
+        const mitgliedSeit = kunde.mitglied_seit ? 
+            new Date(kunde.mitglied_seit).toLocaleDateString('de-DE') : 'Unbekannt';
+        
+        const statusBadge = kunde.ist_aktiv ? 
+            '<span class="badge bg-success">Aktiv</span>' : 
+            '<span class="badge bg-secondary">Inaktiv</span>';
+        
+        const kontaktInfo = [];
+        if (kunde.telefon) kontaktInfo.push(`<i class="fas fa-phone me-1"></i>${kunde.telefon}`);
+        if (kunde.email) kontaktInfo.push(`<i class="fas fa-envelope me-1"></i>${kunde.email}`);
+        const kontakt = kontaktInfo.length > 0 ? kontaktInfo.join('<br>') : '<span class="text-muted">-</span>';
+        
+        html += `
+            <tr>
+                <td>
+                    <strong>${vollname}</strong>
+                    ${kunde.firma ? `<br><small class="text-muted">${kunde.firma}</small>` : ''}
+                    ${kunde.externe_kundennummer ? `<br><small class="text-info">Ext: ${kunde.externe_kundennummer}</small>` : ''}
+                </td>
+                <td>
+                    <span class="badge bg-primary">${kunde.mitgliedsnummer}</span>
+                </td>
+                <td>
+                    <small>${kontakt}</small>
+                </td>
+                <td>
+                    <span class="badge bg-info">${kunde.anzahl_flaschen || 0}</span>
+                    ${kunde.pruefungen_faellig > 0 ? `<br><small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>${kunde.pruefungen_faellig} fällig</small>` : ''}
+                </td>
+                <td>
+                    ${statusBadge}
+                </td>
+                <td>
+                    <small>${mitgliedSeit}</small>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="/kunden-details?kunde_id=${kunde.id}" class="btn btn-outline-primary" target="_blank" title="Details">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <button class="btn btn-outline-success" onclick="zurFlaschenAnnahme(${kunde.id})" title="Flasche hinzufügen">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="kundeBearbeiten(${kunde.id})" title="Bearbeiten">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// SUCHE UND FILTER
+// ============================================================================
+
+function sucheKunden() {
+    const suchbegriff = document.getElementById('kundenSuche').value.toLowerCase().trim();
+    
+    if (suchbegriff === '') {
+        gefilterte_kunden = [...alleKunden];
+    } else {
+        gefilterte_kunden = alleKunden.filter(kunde => {
+            const vollname = `${kunde.vorname} ${kunde.nachname || ''}`.toLowerCase();
+            const telefon = (kunde.telefon || '').toLowerCase();
+            const email = (kunde.email || '').toLowerCase();
+            const mitgliedsnummer = (kunde.mitgliedsnummer || '').toLowerCase();
+            const externeNummer = (kunde.externe_kundennummer || '').toLowerCase();
+            
+            return vollname.includes(suchbegriff) ||
+                   telefon.includes(suchbegriff) ||
+                   email.includes(suchbegriff) ||
+                   mitgliedsnummer.includes(suchbegriff) ||
+                   externeNummer.includes(suchbegriff);
+        });
+    }
+    
+    // Filter anwenden
+    applyCurrentFilter();
+    renderKundenListe();
+}
+
+function filterKunden(filterType) {
+    aktuellerFilter = filterType;
+    
+    // Button-Status aktualisieren
+    document.querySelectorAll('[onclick*="filterKunden"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    applyCurrentFilter();
+    renderKundenListe();
+}
+
+function applyCurrentFilter() {
+    let baseKunden = alleKunden;
+    
+    // Erst Suchfilter anwenden
+    const suchbegriff = document.getElementById('kundenSuche').value.toLowerCase().trim();
+    if (suchbegriff !== '') {
+        baseKunden = alleKunden.filter(kunde => {
+            const vollname = `${kunde.vorname} ${kunde.nachname || ''}`.toLowerCase();
+            const telefon = (kunde.telefon || '').toLowerCase();
+            const email = (kunde.email || '').toLowerCase();
+            const mitgliedsnummer = (kunde.mitgliedsnummer || '').toLowerCase();
+            const externeNummer = (kunde.externe_kundennummer || '').toLowerCase();
+            
+            return vollname.includes(suchbegriff) ||
+                   telefon.includes(suchbegriff) ||
+                   email.includes(suchbegriff) ||
+                   mitgliedsnummer.includes(suchbegriff) ||
+                   externeNummer.includes(suchbegriff);
+        });
+    }
+    
+    // Dann Statusfilter anwenden
+    switch(aktuellerFilter) {
+        case 'aktiv':
+            gefilterte_kunden = baseKunden.filter(k => k.ist_aktiv);
+            break;
+        case 'inaktiv':
+            gefilterte_kunden = baseKunden.filter(k => !k.ist_aktiv);
+            break;
+        case 'pruefung_faellig':
+            gefilterte_kunden = baseKunden.filter(k => k.pruefungen_faellig > 0);
+            break;
+        default:
+            gefilterte_kunden = [...baseKunden];
+    }
+    
+    // Sortierung anwenden
+    applySortierung();
+}
+
+function sortieren(sortType) {
+    aktuellesSortierung = sortType;
+    
+    // Button-Status aktualisieren
+    document.querySelectorAll('[onclick*="sortieren"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    applySortierung();
+    renderKundenListe();
+}
+
+function applySortierung() {
+    switch(aktuellesSortierung) {
+        case 'name':
+            gefilterte_kunden.sort((a, b) => {
+                const nameA = `${a.vorname} ${a.nachname || ''}`;
+                const nameB = `${b.vorname} ${b.nachname || ''}`;
+                return nameA.localeCompare(nameB);
+            });
+            break;
+        case 'mitgliedsnummer':
+            gefilterte_kunden.sort((a, b) => a.mitgliedsnummer.localeCompare(b.mitgliedsnummer));
+            break;
+        case 'erstellt':
+            gefilterte_kunden.sort((a, b) => new Date(b.erstellt_am) - new Date(a.erstellt_am));
+            break;
+    }
+}
+
+// ============================================================================
+// STATISTIKEN
+// ============================================================================
+
+function updateKundenCounts() {
+    const alleCount = alleKunden.length;
+    const aktiveCount = alleKunden.filter(k => k.ist_aktiv).length;
+    const inaktiveCount = alleCount - aktiveCount;
+    const pruefungCount = alleKunden.filter(k => k.pruefungen_faellig > 0).length;
+    
+    document.getElementById('count-alle').textContent = alleCount;
+    document.getElementById('count-aktive').textContent = aktiveCount;
+    document.getElementById('count-inaktive').textContent = inaktiveCount;
+    document.getElementById('count-pruefung').textContent = pruefungCount;
+}
+
+async function statistikenLaden() {
+    try {
+        const response = await fetch('/api/kunden/statistiken');
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.statistiken;
+            
+            document.getElementById('stat-alle-kunden').textContent = stats.total_kunden;
+            document.getElementById('stat-aktive-kunden').textContent = stats.aktive_kunden;
+            document.getElementById('stat-kunden-mit-flaschen').textContent = stats.kunden_mit_flaschen || 0;
+            document.getElementById('stat-pruefungen-faellig').textContent = stats.pruefungen_faellig || 0;
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Statistiken:', error);
+    }
+}
+
+// ============================================================================
+// AKTIONEN
+// ============================================================================
+
+function neuerKunde() {
+    // Formular zurücksetzen
+    document.getElementById('neuerKundeForm').reset();
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('neuerKundeModal'));
+    modal.show();
+    
+    // Fokus auf Vorname
+    setTimeout(() => {
+        document.getElementById('neu-vorname').focus();
+    }, 500);
+}
+
+async function kundenSpeichern() {
+    const formData = {
+        vorname: document.getElementById('neu-vorname').value.trim(),
+        nachname: document.getElementById('neu-nachname').value.trim(),
+        telefon: document.getElementById('neu-telefon').value.trim(),
+        email: document.getElementById('neu-email').value.trim(),
+        firma: document.getElementById('neu-firma').value.trim(),
+        externe_kundennummer: document.getElementById('neu-externe-nummer').value.trim(),
+        adresse: document.getElementById('neu-adresse').value.trim()
+    };
+    
+    if (!formData.vorname) {
+        showErrorMessage('Vorname ist erforderlich!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/kunden/erstellen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage(`Kunde "${formData.vorname} ${formData.nachname}" erfolgreich angelegt!`);
+            
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('neuerKundeModal'));
+            modal.hide();
+            
+            // Daten neu laden
+            await kundenLaden();
+            await statistikenLaden();
+        } else {
+            showErrorMessage('Fehler beim Anlegen: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Speichern:', error);
+        showErrorMessage('Netzwerkfehler beim Speichern');
+    }
+}
+
+function zurFlaschenAnnahme(kundeId) {
+    window.open(`/flaschen-annehmen?kunde_id=${kundeId}`, '_blank');
+}
+
+function kundeBearbeiten(kundeId) {
+    window.open(`/kunden-details?kunde_id=${kundeId}`, '_blank');
+}
+
+async function exportAlleKunden() {
+    try {
+        window.open('/api/kunden/export/alle', '_blank');
+        showInfoMessage('Export wird heruntergeladen...');
+    } catch (error) {
+        showErrorMessage('Fehler beim Export');
+    }
+}
+
+// ============================================================================
+// TOAST-SYSTEM
+// ============================================================================
+
+function showToast(message, type = 'info', duration = 5000) {
+    const toastContainer = document.getElementById('toast-container');
+    const toastId = 'toast-' + Date.now();
+    
+    let icon = '';
+    let bgClass = '';
+    
+    switch(type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle me-2"></i>';
+            bgClass = 'bg-success';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-triangle me-2"></i>';
+            bgClass = 'bg-danger';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-circle me-2"></i>';
+            bgClass = 'bg-warning text-dark';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle me-2"></i>';
+            bgClass = 'bg-info';
+    }
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${icon}${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const bsToast = new bootstrap.Toast(toastElement, { delay: duration });
+    
+    bsToast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+function showSuccessMessage(message) {
+    showToast(message, 'success');
+}
+
+function showErrorMessage(message) {
+    showToast(message, 'error');
+}
+
+function showInfoMessage(message) {
+    showToast(message, 'info');
+}
+</script>
+{% endblock %}

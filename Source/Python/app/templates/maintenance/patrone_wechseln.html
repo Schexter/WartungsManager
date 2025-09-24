@@ -1,0 +1,1097 @@
+{% extends "base.html" %}
+
+{% block title %}Patrone Wechseln - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-6 text-center mb-3">
+            <i class="fas fa-exchange-alt me-3"></i>Patrone Wechseln
+        </h1>
+        <p class="text-center text-muted">Vorbereitete Patronen auswählen + Gewichts-Protokoll</p>
+        
+        <!-- Navigation -->
+        <div class="text-center">
+            <a href="{{ url_for('maintenance.index') }}" class="btn btn-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>Zurück zur Wartung
+            </a>
+            <a href="{{ url_for('maintenance.patrone_vorbereiten') }}" class="btn btn-success me-2">
+                <i class="fas fa-fill-drip me-1"></i>Vorbereiten
+            </a>
+            <a href="{{ url_for('maintenance.patrone_einkauf') }}" class="btn btn-info">
+                <i class="fas fa-shopping-cart me-1"></i>Einkauf
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Patronenwechsel Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" id="status-card">
+            <div class="card-body text-center">
+                <h3><i class="fas fa-filter me-2"></i>Patronenwechsel Status</h3>
+                <div class="timer-large mb-3" id="countdown-display">
+                    <span id="patronenwechsel-countdown">{{ dashboard_status.countdown_text if dashboard_status else 'Lädt...' }}</span>
+                </div>
+                <div class="total-hours mb-3">
+                    <span id="patronenwechsel-info">Status wird geladen...</span>
+                </div>
+                {% if dashboard_status and dashboard_status.wechsel_faellig %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>PATRONENWECHSEL FÄLLIG!</strong> Bitte führen Sie umgehend einen Wechsel durch.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Verfügbare Patronen Übersicht -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-check-circle me-2"></i>Verfügbare vorbereitete Patronen
+                    <button class="btn btn-sm btn-outline-light float-end" onclick="loadVerfuegbarePatronen()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div id="verfuegbare-loading" class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Verfügbare Patronen werden geladen...
+                </div>
+                
+                <div id="verfuegbare-inhalt" style="display: none;">
+                    <!-- Wird via JavaScript gefüllt -->
+                </div>
+                
+                <div id="verfuegbare-leer" class="text-center text-muted py-4" style="display: none;">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>Keine Patronen vorbereitet</h5>
+                    <p>Bereiten Sie zuerst Patronen vor, bevor Sie einen Wechsel durchführen können.</p>
+                    <a href="{{ url_for('maintenance.patrone_vorbereiten') }}" class="btn btn-success">
+                        <i class="fas fa-fill-drip me-1"></i>Patronen vorbereiten
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patronenwechsel durchführen -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>Patronenwechsel durchführen
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Hinweis:</strong> Wählen Sie die vorbereiteten Patronen aus der Datenbank aus. 
+                    Gewichte werden optional für das Protokoll dokumentiert.
+                </div>
+                
+                <form id="patronenwechselForm">
+                    <!-- Authentifizierung -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-lock me-1"></i>Wartungspasswort *:
+                                </label>
+                                <input type="password" class="form-control form-control-lg" id="passwort" 
+                                       placeholder="Wartungspasswort eingeben" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-user me-1"></i>Gewechselt von *:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="gewechselt_von" 
+                                       placeholder="Ihr Name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Patronen-Auswahl -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="mb-3"><i class="fas fa-list-check me-2"></i>Patronen auswählen:</h5>
+                        </div>
+                        
+                        <!-- Molekularsieb Patrone 1 -->
+                        <div class="col-md-4">
+                            <div class="card border-primary">
+                                <div class="card-header bg-light">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="molekularsieb_1_enabled">
+                                        <label class="form-check-label fw-bold" for="molekularsieb_1_enabled">
+                                            Molekularsieb Patrone 1 wechseln
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Vorbereitete Patrone auswählen:</label>
+                                        <select class="form-select" id="molekularsieb_1_vorbereitung" disabled>
+                                            <option value="">Keine verfügbar</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Gewicht alte Patrone (kg):</label>
+                                        <input type="number" class="form-control" id="alte_mol_1_gewicht" 
+                                               step="0.1" min="0" placeholder="z.B. 3.2" disabled>
+                                    </div>
+                                    <div id="mol_1_info" class="small text-muted">
+                                        Wählen Sie eine Patrone aus
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Molekularsieb Patrone 2 -->
+                        <div class="col-md-4">
+                            <div class="card border-primary">
+                                <div class="card-header bg-light">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="molekularsieb_2_enabled">
+                                        <label class="form-check-label fw-bold" for="molekularsieb_2_enabled">
+                                            Molekularsieb Patrone 2 wechseln
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Vorbereitete Patrone auswählen:</label>
+                                        <select class="form-select" id="molekularsieb_2_vorbereitung" disabled>
+                                            <option value="">Keine verfügbar</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Gewicht alte Patrone (kg):</label>
+                                        <input type="number" class="form-control" id="alte_mol_2_gewicht" 
+                                               step="0.1" min="0" placeholder="z.B. 3.1" disabled>
+                                    </div>
+                                    <div id="mol_2_info" class="small text-muted">
+                                        Wählen Sie eine Patrone aus
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Kohle Filter -->
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-light">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="kohle_enabled">
+                                        <label class="form-check-label fw-bold" for="kohle_enabled">
+                                            Kohle Filter wechseln
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Vorbereitete Patrone auswählen:</label>
+                                        <select class="form-select" id="kohle_vorbereitung" disabled>
+                                            <option value="">Keine verfügbar</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Gewicht alter Filter (kg):</label>
+                                        <input type="number" class="form-control" id="alte_kohle_gewicht" 
+                                               step="0.1" min="0" placeholder="z.B. 2.8" disabled>
+                                    </div>
+                                    <div id="kohle_info" class="small text-muted">
+                                        Wählen Sie einen Filter aus
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Zusätzliche Informationen -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-question-circle me-1"></i>Wechsel-Grund:
+                                </label>
+                                <select class="form-select form-select-lg" id="wechsel_grund">
+                                    <option value="Planmäßiger Wechsel">Planmäßiger Wechsel</option>
+                                    <option value="Wartungsintervall erreicht">Wartungsintervall erreicht</option>
+                                    <option value="Qualitätsproblem">Qualitätsproblem</option>
+                                    <option value="Beschädigung">Beschädigung</option>
+                                    <option value="Sonstiges">Sonstiges</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-info-circle me-1"></i>Zustand der alten Patronen:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="alte_patronen_zustand" 
+                                       placeholder="z.B. normal, verfärbt, beschädigt">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notizen -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-comment me-1"></i>Notizen (optional):
+                        </label>
+                        <textarea class="form-control" id="notizen" rows="3" 
+                                placeholder="Zusätzliche Informationen zum Patronenwechsel..."></textarea>
+                    </div>
+                    
+                    <!-- Aktueller Status -->
+                    <div class="alert alert-secondary mb-4" id="status-info">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Aktuelle Betriebsstunden:</strong>
+                                <div id="aktuelle-betriebsstunden">Wird geladen...</div>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Stunden seit letztem Wechsel:</strong>
+                                <div id="stunden-seit-wechsel">Wird geladen...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-danger btn-lg" id="wechsel-button" disabled>
+                            <i class="fas fa-tools me-2"></i>Patronenwechsel durchführen
+                        </button>
+                        <div class="mt-2">
+                            <small class="text-muted">Mindestens eine Patrone muss ausgewählt werden</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wechsel-Historie -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Wechsel-Historie (Erweitert)
+                    <button class="btn btn-sm btn-outline-secondary float-end" onclick="loadWechselHistorie()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div id="historie-loading" class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Historie wird geladen...
+                </div>
+                
+                <!-- Statistiken -->
+                <div id="historie-statistiken" class="row mb-3" style="display: none;">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Gesamt Wechsel</h6>
+                                <h4 class="text-primary" id="stat-total">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Mit Protokoll</h6>
+                                <h4 class="text-success" id="stat-erweitert">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Protokoll-Quote</h6>
+                                <h4 class="text-info" id="stat-prozent">-%</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Historie-Tabelle -->
+                <div id="historie-tabelle" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Datum/Zeit</th>
+                                    <th>Von</th>
+                                    <th>Patronen</th>
+                                    <th>Betriebsstunden</th>
+                                    <th>Protokoll</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historie-tbody">
+                                <!-- Wird via JavaScript gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="historie-leer" class="text-center text-muted py-4" style="display: none;">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>Noch keine Patronenwechsel dokumentiert</h5>
+                    <p>Führen Sie den ersten Patronenwechsel durch, um ihn hier zu sehen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Erfolg Modal -->
+<div class="modal fade" id="erfolgModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h4 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>Patronenwechsel erfolgreich!
+                </h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <strong>Patronenwechsel wurde erfolgreich durchgeführt und dokumentiert!</strong>
+                </div>
+                
+                <div id="erfolg-details">
+                    <!-- Erfolg-Details werden hier eingefügt -->
+                </div>
+                
+                <div class="mt-3">
+                    <strong>Nächste Schritte:</strong>
+                    <ul>
+                        <li>Alte Patronen ordnungsgemäß entsorgen</li>
+                        <li>Kompressor-System prüfen</li>
+                        <li>Wartungsintervall wurde zurückgesetzt</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-2"></i>Verstanden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// PATRONENWECHSEL JAVASCRIPT
+// ============================================================================
+
+let verfuegbarePatronen = {};
+let currentStatus = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializePatronenwechsel();
+    loadPatronenwechselStatus();
+    loadVerfuegbarePatronen();
+    loadWechselHistorie();
+});
+
+function initializePatronenwechsel() {
+    const form = document.getElementById('patronenwechselForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        patronenwechselDurchfuehren();
+    });
+    
+    // Event-Listener für Checkbox-Changes
+    setupPatronenCheckboxes();
+    setupFormValidation();
+}
+
+function setupPatronenCheckboxes() {
+    const checkboxes = [
+        'molekularsieb_1_enabled',
+        'molekularsieb_2_enabled', 
+        'kohle_enabled'
+    ];
+    
+    checkboxes.forEach(checkboxId => {
+        const checkbox = document.getElementById(checkboxId);
+        const selectId = checkboxId.replace('_enabled', '_vorbereitung');
+        const weightId = checkboxId.replace('_enabled', '_gewicht').replace('molekularsieb', 'alte_mol');
+        
+        if (checkboxId === 'kohle_enabled') {
+            weightId = 'alte_kohle_gewicht';
+        }
+        
+        checkbox.addEventListener('change', function() {
+            const select = document.getElementById(selectId);
+            const weightInput = document.getElementById(weightId);
+            
+            select.disabled = !this.checked;
+            weightInput.disabled = !this.checked;
+            
+            if (!this.checked) {
+                select.value = '';
+                weightInput.value = '';
+            }
+            
+            updateSubmitButton();
+        });
+    });
+}
+
+function setupFormValidation() {
+    // Real-time Validation
+    const requiredFields = ['passwort', 'gewechselt_von'];
+    
+    requiredFields.forEach(fieldId => {
+        document.getElementById(fieldId).addEventListener('input', updateSubmitButton);
+    });
+}
+
+function updateSubmitButton() {
+    const passwort = document.getElementById('passwort').value.trim();
+    const gewechseltVon = document.getElementById('gewechselt_von').value.trim();
+    
+    const mol1Enabled = document.getElementById('molekularsieb_1_enabled').checked;
+    const mol2Enabled = document.getElementById('molekularsieb_2_enabled').checked;
+    const kohleEnabled = document.getElementById('kohle_enabled').checked;
+    
+    const mindestensEinePatrone = mol1Enabled || mol2Enabled || kohleEnabled;
+    const alleFelderAusgefuellt = passwort && gewechseltVon;
+    
+    const submitButton = document.getElementById('wechsel-button');
+    submitButton.disabled = !(mindestensEinePatrone && alleFelderAusgefuellt);
+}
+
+async function loadPatronenwechselStatus() {
+    try {
+        const response = await fetch('/api/maintenance/dashboard-status');
+        const status = await response.json();
+        
+        currentStatus = status;
+        updateStatusDisplay(status);
+        
+    } catch (error) {
+        console.error('Fehler beim Laden des Status:', error);
+        document.getElementById('patronenwechsel-countdown').textContent = 'Fehler';
+        document.getElementById('patronenwechsel-info').textContent = 'Status konnte nicht geladen werden';
+    }
+}
+
+function updateStatusDisplay(status) {
+    const countdownElement = document.getElementById('patronenwechsel-countdown');
+    const infoElement = document.getElementById('patronenwechsel-info');
+    const displayElement = document.getElementById('countdown-display');
+    const statusCard = document.getElementById('status-card');
+    const statusInfo = document.getElementById('status-info');
+    
+    if (status.error) {
+        countdownElement.textContent = 'Fehler';
+        infoElement.textContent = status.error;
+        displayElement.className = 'timer-large text-danger';
+        return;
+    }
+    
+    countdownElement.textContent = status.countdown_text;
+    infoElement.textContent = `Nächster Wechsel in ${status.stunden_bis_wechsel.toFixed(1)}h`;
+    
+    // Status-Anzeige aktualisieren
+    document.getElementById('aktuelle-betriebsstunden').textContent = `${status.gesamt_betriebsstunden || 0}h`;
+    document.getElementById('stunden-seit-wechsel').textContent = `${status.stunden_seit_letztem_wechsel || 0}h`;
+    
+    // Farben anpassen
+    if (status.wechsel_faellig) {
+        displayElement.className = 'timer-large text-danger';
+        statusCard.className = 'card border-danger';
+        statusInfo.className = 'alert alert-danger mb-4';
+    } else if (status.warnung_aktiv) {
+        displayElement.className = 'timer-large text-warning';
+        statusCard.className = 'card border-warning';
+        statusInfo.className = 'alert alert-warning mb-4';
+    } else {
+        displayElement.className = 'timer-large text-success';
+        statusCard.className = 'card border-success';
+        statusInfo.className = 'alert alert-success mb-4';
+    }
+}
+
+async function loadVerfuegbarePatronen() {
+    const loadingElement = document.getElementById('verfuegbare-loading');
+    const inhaltElement = document.getElementById('verfuegbare-inhalt');
+    const leerElement = document.getElementById('verfuegbare-leer');
+    
+    // Loading anzeigen
+    loadingElement.style.display = 'block';
+    inhaltElement.style.display = 'none';
+    leerElement.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/maintenance/verfuegbare-patronen');
+        const result = await response.json();
+        
+        if (result.success) {
+            verfuegbarePatronen = result.patronen_nach_typ;
+            
+            if (result.gesamt_anzahl > 0) {
+                updateVerfuegbarePatronenDisplay(result);
+                populatePatronenSelects();
+                inhaltElement.style.display = 'block';
+            } else {
+                leerElement.style.display = 'block';
+            }
+        } else {
+            showErrorMessage('Fehler beim Laden der verfügbaren Patronen: ' + result.error);
+            leerElement.style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden verfügbarer Patronen:', error);
+        showErrorMessage('Netzwerkfehler beim Laden der verfügbaren Patronen');
+        leerElement.style.display = 'block';
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function updateVerfuegbarePatronenDisplay(data) {
+    const inhalt = document.getElementById('verfuegbare-inhalt');
+    
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>Molekularsieb</h6>
+                        <h4 class="text-primary">${data.molekularsieb_anzahl}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>Kohle</h6>
+                        <h4 class="text-warning">${data.kohle_anzahl}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6>Gesamt</h6>
+                        <h4 class="text-success">${data.gesamt_anzahl}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Detaillierte Liste
+    html += '<div class="row">';
+    
+    Object.entries(data.patronen_nach_typ).forEach(([typ, patronen]) => {
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">${typ} (${patronen.length})</h6>
+                    </div>
+                    <div class="card-body">
+        `;
+        
+        patronen.slice(0, 3).forEach(patrone => {
+            const datum = new Date(patrone.vorbereitet_am).toLocaleDateString('de-DE');
+            html += `
+                <div class="mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                        <code>${patrone.charge_nummer}</code>
+                        <small class="text-muted">${datum}</small>
+                    </div>
+                    <small class="text-muted">
+                        Von: ${patrone.vorbereitet_von}
+                        ${patrone.gewicht_nach_fuellen ? ` | ${patrone.gewicht_nach_fuellen}kg` : ''}
+                    </small>
+                </div>
+            `;
+        });
+        
+        if (patronen.length > 3) {
+            html += `<small class="text-muted">... und ${patronen.length - 3} weitere</small>`;
+        }
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    inhalt.innerHTML = html;
+}
+
+function populatePatronenSelects() {
+    // Molekularsieb Selects füllen
+    const mol1Select = document.getElementById('molekularsieb_1_vorbereitung');
+    const mol2Select = document.getElementById('molekularsieb_2_vorbereitung');
+    const kohleSelect = document.getElementById('kohle_vorbereitung');
+    
+    // Reset
+    mol1Select.innerHTML = '<option value="">Patrone auswählen</option>';
+    mol2Select.innerHTML = '<option value="">Patrone auswählen</option>';
+    kohleSelect.innerHTML = '<option value="">Filter auswählen</option>';
+    
+    // Molekularsieb Patronen
+    if (verfuegbarePatronen.Molekularsieb) {
+        verfuegbarePatronen.Molekularsieb.forEach(patrone => {
+            const option1 = new Option(
+                `${patrone.charge_nummer} (${patrone.vorbereitet_von}, ${new Date(patrone.vorbereitet_am).toLocaleDateString('de-DE')})`,
+                patrone.id
+            );
+            const option2 = option1.cloneNode(true);
+            
+            mol1Select.appendChild(option1);
+            mol2Select.appendChild(option2);
+        });
+    }
+    
+    // Kohle Filter
+    if (verfuegbarePatronen.Kohle) {
+        verfuegbarePatronen.Kohle.forEach(patrone => {
+            const option = new Option(
+                `${patrone.charge_nummer} (${patrone.vorbereitet_von}, ${new Date(patrone.vorbereitet_am).toLocaleDateString('de-DE')})`,
+                patrone.id
+            );
+            kohleSelect.appendChild(option);
+        });
+    }
+    
+    // Change-Events für Info-Updates
+    setupPatronenSelectEvents();
+}
+
+function setupPatronenSelectEvents() {
+    const selects = [
+        { id: 'molekularsieb_1_vorbereitung', infoId: 'mol_1_info' },
+        { id: 'molekularsieb_2_vorbereitung', infoId: 'mol_2_info' },
+        { id: 'kohle_vorbereitung', infoId: 'kohle_info' }
+    ];
+    
+    selects.forEach(selectInfo => {
+        const select = document.getElementById(selectInfo.id);
+        const infoDiv = document.getElementById(selectInfo.infoId);
+        
+        select.addEventListener('change', function() {
+            if (this.value) {
+                const patrone = findPatroneById(parseInt(this.value));
+                if (patrone) {
+                    infoDiv.innerHTML = `
+                        <strong>Charge:</strong> ${patrone.charge_nummer}<br>
+                        <strong>Gewicht:</strong> ${patrone.gewicht_nach_fuellen || 'N/A'} kg<br>
+                        <strong>Material:</strong> ${patrone.material_verwendet || 'Standard'}
+                    `;
+                    infoDiv.className = 'small text-success';
+                }
+            } else {
+                infoDiv.textContent = 'Wählen Sie eine Patrone aus';
+                infoDiv.className = 'small text-muted';
+            }
+        });
+    });
+}
+
+function findPatroneById(id) {
+    for (const patronen of Object.values(verfuegbarePatronen)) {
+        const patrone = patronen.find(p => p.id === id);
+        if (patrone) return patrone;
+    }
+    return null;
+}
+
+async function patronenwechselDurchfuehren() {
+    const formData = {
+        passwort: document.getElementById('passwort').value.trim(),
+        gewechselt_von: document.getElementById('gewechselt_von').value.trim(),
+        molekularsieb_1_vorbereitung_id: parseInt(document.getElementById('molekularsieb_1_vorbereitung').value) || null,
+        molekularsieb_2_vorbereitung_id: parseInt(document.getElementById('molekularsieb_2_vorbereitung').value) || null,
+        kohle_vorbereitung_id: parseInt(document.getElementById('kohle_vorbereitung').value) || null,
+        alte_mol_1_gewicht: parseFloat(document.getElementById('alte_mol_1_gewicht').value) || null,
+        alte_mol_2_gewicht: parseFloat(document.getElementById('alte_mol_2_gewicht').value) || null,
+        alte_kohle_gewicht: parseFloat(document.getElementById('alte_kohle_gewicht').value) || null,
+        wechsel_grund: document.getElementById('wechsel_grund').value,
+        alte_patronen_zustand: document.getElementById('alte_patronen_zustand').value.trim() || null,
+        notizen: document.getElementById('notizen').value.trim() || null
+    };
+    
+    // Nur gewählte Patronen berücksichtigen
+    if (!document.getElementById('molekularsieb_1_enabled').checked) {
+        formData.molekularsieb_1_vorbereitung_id = null;
+        formData.alte_mol_1_gewicht = null;
+    }
+    if (!document.getElementById('molekularsieb_2_enabled').checked) {
+        formData.molekularsieb_2_vorbereitung_id = null;
+        formData.alte_mol_2_gewicht = null;
+    }
+    if (!document.getElementById('kohle_enabled').checked) {
+        formData.kohle_vorbereitung_id = null;
+        formData.alte_kohle_gewicht = null;
+    }
+    
+    // Validierung
+    const gewechseltePatronen = [];
+    if (formData.molekularsieb_1_vorbereitung_id) gewechseltePatronen.push('Molekularsieb 1');
+    if (formData.molekularsieb_2_vorbereitung_id) gewechseltePatronen.push('Molekularsieb 2');
+    if (formData.kohle_vorbereitung_id) gewechseltePatronen.push('Kohle Filter');
+    
+    if (gewechseltePatronen.length === 0) {
+        showErrorMessage('Bitte wählen Sie mindestens eine Patrone zum Wechseln aus!');
+        return;
+    }
+    
+    // Bestätigung
+    const confirmText = `Patronenwechsel wirklich durchführen?\\n\\nZu wechselnde Patronen:\\n${gewechseltePatronen.join('\\n')}\\n\\nDurchgeführt von: ${formData.gewechselt_von}`;
+    
+    if (!confirm(confirmText)) {
+        return;
+    }
+    
+    try {
+        showLoadingState('Patronenwechsel wird durchgeführt...');
+        
+        const response = await fetch('/api/maintenance/patrone-wechseln', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showErfolgModal(result);
+            
+            // Formular zurücksetzen
+            document.getElementById('patronenwechselForm').reset();
+            setupPatronenCheckboxes();
+            updateSubmitButton();
+            
+            // Daten neu laden
+            loadPatronenwechselStatus();
+            loadVerfuegbarePatronen();
+            loadWechselHistorie();
+            
+        } else {
+            showErrorMessage('Fehler beim Patronenwechsel: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Patronenwechsel:', error);
+        showErrorMessage('Netzwerkfehler beim Patronenwechsel');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+function showErfolgModal(result) {
+    const modal = new bootstrap.Modal(document.getElementById('erfolgModal'));
+    const detailsDiv = document.getElementById('erfolg-details');
+    
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Gewechselte Patronen:</strong>
+                <ul class="mb-0">
+    `;
+    
+    result.gewechselte_patronen.forEach(patrone => {
+        html += `<li>${patrone}</li>`;
+    });
+    
+    html += `
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <strong>Betriebsstunden:</strong> ${result.patronenwechsel.betriebsstunden_bei_wechsel}h<br>
+                <strong>Stunden seit letztem:</strong> ${result.patronenwechsel.betriebsstunden_seit_letztem_wechsel}h<br>
+                <strong>Durchgeführt von:</strong> ${result.patronenwechsel.durchgefuehrt_von}
+            </div>
+        </div>
+    `;
+    
+    if (result.protokolle && result.protokolle.length > 0) {
+        html += `
+            <div class="mt-3">
+                <strong>Erweiterte Protokolle erstellt:</strong>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Position</th>
+                                <th>Neue Patrone</th>
+                                <th>Gewicht alt</th>
+                                <th>Gewicht neu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        result.protokolle.forEach(protokoll => {
+            html += `
+                <tr>
+                    <td>${protokoll.position}</td>
+                    <td>${protokoll.vorbereitung ? protokoll.vorbereitung.charge_nummer : 'N/A'}</td>
+                    <td>${protokoll.alte_patrone_gewicht || 'N/A'} kg</td>
+                    <td>${protokoll.neue_patrone_gewicht || 'N/A'} kg</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    detailsDiv.innerHTML = html;
+    modal.show();
+}
+
+async function loadWechselHistorie() {
+    const loadingElement = document.getElementById('historie-loading');
+    const statistikenElement = document.getElementById('historie-statistiken');
+    const tabelleElement = document.getElementById('historie-tabelle');
+    const leerElement = document.getElementById('historie-leer');
+    
+    // Loading anzeigen
+    loadingElement.style.display = 'block';
+    statistikenElement.style.display = 'none';
+    tabelleElement.style.display = 'none';
+    leerElement.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/maintenance/wechsel-historie-erweitert');
+        const result = await response.json();
+        
+        if (result.success) {
+            // Statistiken aktualisieren
+            if (result.statistiken) {
+                document.getElementById('stat-total').textContent = result.statistiken.total_wechsel;
+                document.getElementById('stat-erweitert').textContent = result.statistiken.erweiterte_wechsel;
+                document.getElementById('stat-prozent').textContent = result.statistiken.prozent_erweitert.toFixed(0) + '%';
+                statistikenElement.style.display = 'block';
+            }
+            
+            // Tabelle füllen
+            const tbody = document.getElementById('historie-tbody');
+            tbody.innerHTML = '';
+            
+            if (result.wechsel_historie && result.wechsel_historie.length > 0) {
+                result.wechsel_historie.forEach(wechsel => {
+                    const row = createWechselRow(wechsel);
+                    tbody.appendChild(row);
+                });
+                tabelleElement.style.display = 'block';
+            } else {
+                leerElement.style.display = 'block';
+            }
+            
+        } else {
+            showErrorMessage('Fehler beim Laden der Historie: ' + result.error);
+            leerElement.style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Wechsel-Historie:', error);
+        showErrorMessage('Netzwerkfehler beim Laden der Historie');
+        leerElement.style.display = 'block';
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function createWechselRow(wechsel) {
+    const row = document.createElement('tr');
+    
+    // Gewechselte Patronen
+    const gewechseltePatronen = [];
+    if (wechsel.molekularsieb_patrone_1_gewechselt) gewechseltePatronen.push('MS1');
+    if (wechsel.molekularsieb_patrone_2_gewechselt) gewechseltePatronen.push('MS2');
+    if (wechsel.kohle_filter_gewechselt) gewechseltePatronen.push('Kohle');
+    
+    // Protokoll-Status
+    const hatProtokoll = wechsel.hat_erweiterte_protokolle;
+    const protokollBadge = hatProtokoll 
+        ? '<span class=\"badge bg-success\">Erweitert</span>'
+        : '<span class=\"badge bg-secondary\">Standard</span>';
+    
+    // Datum formatieren
+    const datum = new Date(wechsel.wechsel_datum);
+    const datumText = datum.toLocaleDateString('de-DE') + ' ' + datum.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+    
+    row.innerHTML = `
+        <td>${datumText}</td>
+        <td>${wechsel.durchgefuehrt_von}</td>
+        <td>
+            <div class=\"d-flex gap-1\">
+                ${gewechseltePatronen.map(p => `<span class=\"badge bg-primary\">${p}</span>`).join('')}
+            </div>
+        </td>
+        <td>${wechsel.betriebsstunden_bei_wechsel}h</td>
+        <td>${protokollBadge}</td>
+        <td>
+            <button class=\"btn btn-outline-info btn-sm\" onclick=\"showWechselDetails(${wechsel.id})\" title=\"Details anzeigen\">
+                <i class=\"fas fa-eye\"></i>
+            </button>
+        </td>
+    `;
+    
+    return row;
+}
+
+function showWechselDetails(wechselId) {
+    alert(`Wechsel Details für ID: ${wechselId}\\n\\nDetails-Modal wird implementiert...`);
+    // TODO: Details-Modal implementieren
+}
+
+// ============================================================================
+// UTILITY FUNKTIONEN
+// ============================================================================
+
+function showLoadingState(message) {
+    console.log('Loading:', message);
+    // TODO: Loading-Overlay implementieren
+}
+
+function hideLoadingState() {
+    console.log('Loading beendet');
+    // TODO: Loading-Overlay ausblenden
+}
+
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 7000);
+}
+</script>
+
+<!-- Zusätzliche Styles -->
+<style>
+.timer-large {
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.total-hours {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.4rem;
+}
+
+/* Form-Styles */
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.form-select:disabled, .form-control:disabled {
+    background-color: #f8f9fa;
+    opacity: 0.6;
+}
+
+/* Card-Hover-Effekte */
+.card:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+/* Badge-Gruppierung */
+.d-flex.gap-1 > .badge {
+    margin-right: 0.25rem;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .timer-large {
+        font-size: 2rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .card-body {
+        padding: 1rem 0.75rem;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+}
+</style>
+{% endblock %}

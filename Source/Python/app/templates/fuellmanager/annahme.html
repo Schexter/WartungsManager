@@ -1,0 +1,541 @@
+<!-- Füllmanager Annahme-Seite -->
+{% extends "base.html" %}
+
+{% block title %}Flasche annehmen - Füllmanager{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2">
+                <i class="fas fa-inbox"></i> Flasche annehmen - Füllmanager
+            </h1>
+            <p class="text-muted">Kompletter Füllprozess mit Preiskalkulation und MOD/END-Berechnung</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('fuellmanager.neue_annahme') }}" id="annahmeForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        
+        <div class="row">
+            <!-- Linke Spalte -->
+            <div class="col-md-6">
+                <!-- Kunde & Flasche -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user"></i> Kunde & Flasche
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group mb-3">
+                            <label for="kunde_id" class="form-label fw-bold">Kunde:</label>
+                            <select class="form-select form-select-lg" id="kunde_id" name="kunde_id" required>
+                                <option value="">-- Bitte Kunde auswählen --</option>
+                                {% for kunde in kunden %}
+                                <option value="{{ kunde.id }}">
+                                    {{ kunde.vollname }} ({{ kunde.mitgliedsnummer }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="flasche_id" class="form-label fw-bold">Flasche:</label>
+                            <select class="form-select form-select-lg" id="flasche_id" name="flasche_id" required>
+                                <option value="">-- Erst Kunde auswählen --</option>
+                            </select>
+                        </div>
+                        
+                        <div id="flaschenDetails" class="alert alert-info" style="display: none;">
+                            <!-- Flaschendetails werden hier angezeigt -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Flaschenprüfung -->
+                <div class="card mb-3">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-check-circle"></i> Flaschenprüfung
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-2">
+                            <input type="checkbox" class="form-check-input" id="visuelle_pruefung" 
+                                   name="visuelle_pruefung" required>
+                            <label class="form-check-label" for="visuelle_pruefung">
+                                <i class="fas fa-eye"></i> Visuelle Prüfung durchgeführt
+                            </label>
+                        </div>
+                        
+                        <div class="form-check mb-2">
+                            <input type="checkbox" class="form-check-input" id="tuev_geprueft" 
+                                   name="tuev_geprueft" required>
+                            <label class="form-check-label" for="tuev_geprueft">
+                                <i class="fas fa-certificate"></i> TÜV-Prüfung gültig
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="ventil_zustand" class="form-label">Ventilzustand:</label>
+                            <select class="form-select" id="ventil_zustand" name="ventil_zustand" required>
+                                <option value="OK">OK - Einwandfrei</option>
+                                <option value="Wartung">Wartung erforderlich</option>
+                                <option value="Defekt">Defekt</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rechte Spalte -->
+            <div class="col-md-6">
+                <!-- Füllparameter -->
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tachometer-alt"></i> Füllparameter & Preiskalkulation
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Druckwerte -->
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label for="restdruck_bar" class="form-label fw-bold">
+                                    <i class="fas fa-gauge-low"></i> Restdruck (bar):
+                                </label>
+                                <input type="number" class="form-control form-control-lg" 
+                                       id="restdruck_bar" name="restdruck_bar" 
+                                       min="0" max="300" step="1" value="0" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="zieldruck_bar" class="form-label fw-bold">
+                                    <i class="fas fa-gauge-high"></i> Zieldruck (bar):
+                                </label>
+                                <input type="number" class="form-control form-control-lg" 
+                                       id="zieldruck_bar" name="zieldruck_bar" 
+                                       min="0" max="300" step="1" value="220" required>
+                            </div>
+                        </div>
+                        
+                        <!-- Gasgemisch -->
+                        <h6 class="fw-bold mb-3">
+                            <i class="fas fa-flask"></i> Gasgemisch-Zusammensetzung:
+                        </h6>
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body p-2 text-center">
+                                        <label class="form-label mb-1">Sauerstoff (O₂)</label>
+                                        <input type="number" class="form-control text-center" 
+                                               id="sauerstoff_prozent" name="sauerstoff_prozent" 
+                                               min="0" max="100" step="0.1" value="21" required>
+                                        <small>%</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card bg-warning">
+                                    <div class="card-body p-2 text-center">
+                                        <label class="form-label mb-1">Helium (He)</label>
+                                        <input type="number" class="form-control text-center" 
+                                               id="helium_prozent" name="helium_prozent" 
+                                               min="0" max="100" step="0.1" value="0" required>
+                                        <small>%</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body p-2 text-center">
+                                        <label class="form-label mb-1">Stickstoff (N₂)</label>
+                                        <input type="number" class="form-control text-center" 
+                                               id="stickstoff_prozent" name="stickstoff_prozent" 
+                                               value="79" readonly>
+                                        <small>%</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-danger" id="gasgemischWarnung" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            <span id="warnungText"></span>
+                        </div>
+                        
+                        <!-- Live-Preiskalkulation -->
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="fas fa-calculator"></i> Live-Preiskalkulation</h6>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="kalkulationDetails" class="small">
+                                    <p class="text-muted text-center mb-0">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Keine Füllung erforderlich oder keine Flasche ausgewählt
+                                    </p>
+                                </div>
+                                <hr class="my-2">
+                                <div class="text-center">
+                                    <h5 class="mb-0">Geschätzter Preis:</h5>
+                                    <h3 id="geschaetzterPreis" class="text-primary mb-0">-- €</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MOD/END Berechnungen -->
+        <div class="card mb-3" id="modEndCard" style="display: none;">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-water"></i> Tauchparameter (MOD/END)
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Maximum Operating Depth (MOD)</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>MOD bei 1.2 bar ppO₂:</td>
+                                    <td class="text-end fw-bold" id="mod_1_2">-- m</td>
+                                </tr>
+                                <tr>
+                                    <td>MOD bei 1.4 bar ppO₂:</td>
+                                    <td class="text-end fw-bold" id="mod_1_4">-- m</td>
+                                </tr>
+                                <tr>
+                                    <td>MOD bei 1.6 bar ppO₂:</td>
+                                    <td class="text-end fw-bold" id="mod_1_6">-- m</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Equivalent Air Depth (END)</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>END bei 30m:</td>
+                                    <td class="text-end fw-bold" id="end_30m">-- m</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aktionsbuttons -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <button type="submit" class="btn btn-success btn-lg w-100 mb-2" id="submitButton">
+                    <i class="fas fa-check"></i> Flasche annehmen und Füllvorgang starten
+                </button>
+                <a href="{{ url_for('fuellmanager.index') }}" class="btn btn-secondary btn-lg w-100">
+                    <i class="fas fa-times"></i> Abbrechen
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery für AJAX -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    console.log('Füllmanager Annahme geladen');
+    
+    var gasPreise = {
+        helium: 0.095,
+        sauerstoff: 0.01,
+        luft: 0.002
+    };
+    
+    var aktuellesFlaschenvolumen = 11; // Standard
+    
+    // Gaspreise initial laden
+    loadGasPreise();
+    
+    function loadGasPreise() {
+        $.ajax({
+            url: '/fuellmanager/api/gaspreise',
+            method: 'GET',
+            success: function(data) {
+                console.log('Gaspreise geladen:', data);
+                gasPreise = data.preise;
+                updatePreisberechnung();
+            },
+            error: function(err) {
+                console.error('Fehler beim Laden der Gaspreise:', err);
+                // Verwende Standard-Preise
+                updatePreisberechnung();
+            }
+        });
+    }
+    
+    // Kunde ausgewählt
+    $('#kunde_id').change(function() {
+        var kundeId = $(this).val();
+        console.log('Kunde ausgewählt:', kundeId);
+        
+        if (kundeId) {
+            // Flaschen für Kunde laden
+            $.ajax({
+                url: '/api/kunden/' + kundeId + '/flaschen',
+                method: 'GET',
+                success: function(data) {
+                    console.log('Flaschen geladen:', data);
+                    
+                    var flaschenSelect = $('#flasche_id');
+                    flaschenSelect.empty();
+                    flaschenSelect.append('<option value="">-- Flasche auswählen --</option>');
+                    
+                    // Option für neue Flasche
+                    flaschenSelect.append('<option value="new">++ Neue Flasche anlegen ++</option>');
+                    
+                    if (data.flaschen && data.flaschen.length > 0) {
+                        $.each(data.flaschen, function(index, flasche) {
+                            var option = $('<option></option>')
+                                .attr('value', flasche.id)
+                                .attr('data-volumen', flasche.groesse_liter)
+                                .text(flasche.flasche_nummer + ' (' + flasche.groesse_liter + 'L)');
+                            
+                            if (flasche.pruefung_faellig) {
+                                option.addClass('text-danger');
+                                option.text(option.text() + ' - TÜV FÄLLIG!');
+                            }
+                            
+                            flaschenSelect.append(option);
+                        });
+                    }
+                },
+                error: function(err) {
+                    console.error('Fehler beim Laden der Flaschen:', err);
+                    alert('Fehler beim Laden der Flaschen!');
+                }
+            });
+        } else {
+            $('#flasche_id').empty().append('<option value="">-- Erst Kunde auswählen --</option>');
+            $('#flaschenDetails').hide();
+        }
+    });
+    
+    // Flasche ausgewählt
+    $('#flasche_id').change(function() {
+        var flascheId = $(this).val();
+        console.log('Flasche ausgewählt:', flascheId);
+        
+        if (flascheId === 'new') {
+            // Neue Flasche
+            $('#flaschenDetails').html(
+                '<strong>Neue Flasche</strong><br>' +
+                'Eine neue Flasche wird beim Speichern automatisch angelegt.'
+            ).show();
+            aktuellesFlaschenvolumen = 11; // Standard
+            updatePreisberechnung();
+            
+        } else if (flascheId) {
+            // Bestehende Flasche
+            $.ajax({
+                url: '/api/flaschen/' + flascheId,
+                method: 'GET',
+                success: function(flasche) {
+                    console.log('Flaschendetails:', flasche);
+                    
+                    var detailsHtml = '<strong>Flasche:</strong> ' + flasche.flasche_nummer + '<br>';
+                    detailsHtml += '<strong>Größe:</strong> ' + flasche.groesse_liter + ' Liter<br>';
+                    detailsHtml += '<strong>Max. Druck:</strong> ' + flasche.max_druck_bar + ' bar<br>';
+                    
+                    if (flasche.pruefung_faellig) {
+                        detailsHtml += '<span class="text-danger"><strong>TÜV:</strong> ' + 
+                                      flasche.pruefung_status_text + '</span>';
+                        $('#tuev_geprueft').prop('checked', false);
+                    } else {
+                        detailsHtml += '<span class="text-success"><strong>TÜV:</strong> ' + 
+                                      flasche.pruefung_status_text + '</span>';
+                        $('#tuev_geprueft').prop('checked', true);
+                    }
+                    
+                    $('#flaschenDetails').html(detailsHtml).show();
+                    aktuellesFlaschenvolumen = flasche.groesse_liter;
+                    updatePreisberechnung();
+                },
+                error: function(err) {
+                    console.error('Fehler beim Laden der Flaschendetails:', err);
+                }
+            });
+        } else {
+            $('#flaschenDetails').hide();
+            updatePreisberechnung();
+        }
+    });
+    
+    // Gasgemisch-Berechnung
+    function updateGasgemisch() {
+        var o2 = parseFloat($('#sauerstoff_prozent').val()) || 0;
+        var he = parseFloat($('#helium_prozent').val()) || 0;
+        var n2 = 100 - o2 - he;
+        
+        $('#stickstoff_prozent').val(n2.toFixed(1));
+        
+        // Validierung
+        if (n2 < 0) {
+            $('#gasgemischWarnung').show();
+            $('#warnungText').text('Summe der Gase übersteigt 100%!');
+            $('#submitButton').prop('disabled', true);
+        } else if (Math.abs(o2 + he + n2 - 100) > 0.1) {
+            $('#gasgemischWarnung').show();
+            $('#warnungText').text('Gasgemisch ergibt nicht genau 100%!');
+            $('#submitButton').prop('disabled', true);
+        } else {
+            $('#gasgemischWarnung').hide();
+            $('#submitButton').prop('disabled', false);
+        }
+        
+        updatePreisberechnung();
+        updateModEnd();
+    }
+    
+    // MOD/END Berechnungen
+    function updateModEnd() {
+        var o2 = parseFloat($('#sauerstoff_prozent').val()) || 21;
+        var n2 = parseFloat($('#stickstoff_prozent').val()) || 79;
+        
+        if (o2 > 0) {
+            // MOD Berechnungen
+            var mod_1_2 = ((1.2 / (o2 / 100)) - 1) * 10;
+            var mod_1_4 = ((1.4 / (o2 / 100)) - 1) * 10;
+            var mod_1_6 = ((1.6 / (o2 / 100)) - 1) * 10;
+            
+            $('#mod_1_2').text(Math.max(0, mod_1_2).toFixed(1) + ' m');
+            $('#mod_1_4').text(Math.max(0, mod_1_4).toFixed(1) + ' m');
+            $('#mod_1_6').text(Math.max(0, mod_1_6).toFixed(1) + ' m');
+            
+            // END Berechnung bei 30m
+            var end_30m = ((4 * (n2 / 100)) / 0.79 - 1) * 10;
+            $('#end_30m').text(Math.max(0, end_30m).toFixed(1) + ' m');
+            
+            $('#modEndCard').show();
+        } else {
+            $('#modEndCard').hide();
+        }
+    }
+    
+    // Preisberechnung
+    function updatePreisberechnung() {
+        var restdruck = parseFloat($('#restdruck_bar').val()) || 0;
+        var zieldruck = parseFloat($('#zieldruck_bar').val()) || 220;
+        var o2 = parseFloat($('#sauerstoff_prozent').val()) || 21;
+        var he = parseFloat($('#helium_prozent').val()) || 0;
+        var n2 = parseFloat($('#stickstoff_prozent').val()) || 79;
+        
+        var volumen = aktuellesFlaschenvolumen;
+        
+        // Füllmenge berechnen
+        var fuellmenge = zieldruck - restdruck;
+        
+        if (fuellmenge <= 0) {
+            $('#kalkulationDetails').html(
+                '<p class="text-muted text-center mb-0">' +
+                '<i class="fas fa-info-circle"></i> Keine Füllung erforderlich</p>'
+            );
+            $('#geschaetzterPreis').text('0.00 €');
+            return;
+        }
+        
+        // Gas-Mengen in Bar·Liter
+        var heliumBarLiter = (he / 100) * fuellmenge * volumen;
+        var sauerstoffBarLiter = (o2 / 100) * fuellmenge * volumen;
+        var luftBarLiter = (n2 / 100) * fuellmenge * volumen;
+        
+        // Preise berechnen
+        var preisHelium = heliumBarLiter * gasPreise.helium;
+        var preisSauerstoff = sauerstoffBarLiter * gasPreise.sauerstoff;
+        var preisLuft = luftBarLiter * gasPreise.luft;
+        var gesamtpreis = preisHelium + preisSauerstoff + preisLuft;
+        
+        // Details anzeigen (kompakte Darstellung)
+        var details = '<table class="table table-sm mb-0">';
+        details += '<tr><th>Infos:</th><th>Menge</th><th>Enddruck</th></tr>';
+        
+        if (he > 0) {
+            details += '<tr>';
+            details += '<td>Helium:</td>';
+            details += '<td>' + heliumBarLiter.toFixed(1) + '</td>';
+            details += '<td>' + (he * fuellmenge / 100).toFixed(1) + ' bar</td>';
+            details += '</tr>';
+        }
+        
+        details += '<tr>';
+        details += '<td>Sauerstoff:</td>';
+        details += '<td>' + sauerstoffBarLiter.toFixed(1) + '</td>';
+        details += '<td>' + (o2 * fuellmenge / 100).toFixed(1) + ' bar</td>';
+        details += '</tr>';
+        
+        details += '<tr>';
+        details += '<td>Luft:</td>';
+        details += '<td>' + luftBarLiter.toFixed(1) + '</td>';
+        details += '<td>' + zieldruck.toFixed(1) + ' bar</td>';
+        details += '</tr>';
+        
+        details += '</table>';
+        
+        details += '<div class="mt-2">';
+        details += '<small>Volumen: ' + volumen + ' ltr.</small><br>';
+        details += '<small class="text-primary">Preis He per Bar Ltr: ' + gasPreise.helium.toFixed(4) + ' € = ' + preisHelium.toFixed(2) + ' €</small><br>';
+        details += '<small class="text-info">Preis O2 per Bar Ltr: ' + gasPreise.sauerstoff.toFixed(4) + ' € = ' + preisSauerstoff.toFixed(2) + ' €</small><br>';
+        details += '<small class="text-success">Preis Luft per Bar Ltr: ' + gasPreise.luft.toFixed(4) + ' € = ' + preisLuft.toFixed(2) + ' €</small>';
+        details += '</div>';
+        
+        $('#kalkulationDetails').html(details);
+        $('#geschaetzterPreis').text(gesamtpreis.toFixed(2) + ' €');
+    }
+    
+    // Event Handler
+    $('#sauerstoff_prozent, #helium_prozent').on('input', updateGasgemisch);
+    $('#restdruck_bar, #zieldruck_bar').on('input', function() {
+        updatePreisberechnung();
+    });
+    
+    // Initial
+    updateGasgemisch();
+    
+    // Form-Validierung
+    $('#annahmeForm').submit(function(e) {
+        if (!$('#kunde_id').val()) {
+            e.preventDefault();
+            alert('Bitte wählen Sie einen Kunden aus!');
+            return false;
+        }
+        
+        if (!$('#visuelle_pruefung').is(':checked')) {
+            e.preventDefault();
+            alert('Bitte bestätigen Sie die visuelle Prüfung!');
+            return false;
+        }
+        
+        if ($('#ventil_zustand').val() === 'Defekt') {
+            if (!confirm('Ventil ist defekt! Trotzdem fortfahren?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+        
+        // Wenn keine Flasche ausgewählt, neue anlegen
+        if (!$('#flasche_id').val() || $('#flasche_id').val() === 'new') {
+            // Neue Flasche wird im Backend angelegt
+            $('#flasche_id').val(''); // Leeren für Backend
+        }
+    });
+});
+</script>
+{% endblock %}

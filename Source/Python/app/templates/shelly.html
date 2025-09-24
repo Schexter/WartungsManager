@@ -1,0 +1,703 @@
+{% extends "admin_layout.html" %}
+
+{% block title %}Shelly Netzwerk-Scanner - WartungsManager{% endblock %}
+
+{% block styles %}
+<style>
+    .scanner-container {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+        transition: transform 0.3s;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        opacity: 0.8;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    
+    .stat-label {
+        color: #7f8c8d;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .device-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s;
+    }
+    
+    .device-card.online {
+        border-color: #28a745;
+        background: linear-gradient(to right, #f8f9fa, #e8f5e9);
+    }
+    
+    .device-card.offline {
+        border-color: #dc3545;
+        background: linear-gradient(to right, #f8f9fa, #ffebee);
+        opacity: 0.7;
+    }
+    
+    .device-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .device-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-dot.online {
+        background: #28a745;
+    }
+    
+    .status-dot.offline {
+        background: #dc3545;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .device-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .info-item {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    
+    .info-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-value {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-top: 3px;
+    }
+    
+    .scan-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-right: 10px;
+    }
+    
+    .scan-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .scan-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #6c757d;
+    }
+    
+    .control-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-right: 5px;
+    }
+    
+    .control-btn.on {
+        background: #28a745;
+        color: white;
+    }
+    
+    .control-btn.off {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .control-btn.toggle {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .control-btn:hover {
+        transform: scale(1.05);
+    }
+    
+    .network-info {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .debug-section {
+        background: #2c3e50;
+        color: #ecf0f1;
+        border-radius: 5px;
+        padding: 15px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .progress {
+        height: 25px;
+        border-radius: 5px;
+        background: #e9ecef;
+    }
+    
+    .progress-bar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="page-title">
+                <i class="fas fa-network-wired me-2"></i>
+                Shelly Netzwerk-Scanner
+            </h1>
+            <p class="text-muted">Automatische Erkennung und Steuerung von Shelly-Geräten im Netzwerk</p>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row">
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card text-center">
+                <div class="stat-icon text-primary">
+                    <i class="fas fa-wifi"></i>
+                </div>
+                <div class="stat-value" id="networkRange">192.168.0.x</div>
+                <div class="stat-label">Netzwerk</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card text-center">
+                <div class="stat-icon text-info">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="stat-value" id="foundDevices">0</div>
+                <div class="stat-label">Geräte gefunden</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card text-center">
+                <div class="stat-icon text-success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-value" id="onlineDevices">0</div>
+                <div class="stat-label">Online</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card text-center">
+                <div class="stat-icon text-danger">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-value" id="offlineDevices">0</div>
+                <div class="stat-label">Offline</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scanner-Bereich -->
+    <div class="scanner-container">
+        <h3><i class="fas fa-radar me-2"></i>Netzwerk-Scanner</h3>
+        <p class="text-muted mb-4">Durchsuche das lokale Netzwerk nach Shelly-Geräten</p>
+        
+        <div class="network-info">
+            <div class="row">
+                <div class="col-md-6">
+                    <strong><i class="fas fa-network-wired me-2"></i>Erkanntes Netzwerk:</strong> 
+                    <span id="detectedNetwork">Wird ermittelt...</span>
+                </div>
+                <div class="col-md-6">
+                    <strong><i class="fas fa-desktop me-2"></i>Lokale IP:</strong> 
+                    <span id="localIP">Wird ermittelt...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <button class="scan-btn" id="fullScanBtn" onclick="startNetworkScan()">
+                <i class="fas fa-search-location me-2"></i>
+                Vollständiger Netzwerk-Scan (1-254)
+            </button>
+            
+            <button class="scan-btn" id="quickScanBtn" onclick="startQuickScan()">
+                <i class="fas fa-bolt me-2"></i>
+                Schnell-Scan
+            </button>
+        </div>
+
+        <div class="progress-container" id="progressContainer" style="display: none;">
+            <div class="progress mb-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" 
+                     id="scanProgress"
+                     style="width: 0%">0%</div>
+            </div>
+            <small class="text-muted" id="scanStatus">
+                <i class="fas fa-spinner fa-spin me-2"></i>Initialisiere Scanner...
+            </small>
+        </div>
+
+        <div class="alert alert-success mt-3" id="successAlert" style="display: none;">
+            <i class="fas fa-check-circle me-2"></i>
+            <span id="successMessage"></span>
+        </div>
+
+        <div class="alert alert-danger mt-3" id="errorAlert" style="display: none;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="errorMessage"></span>
+        </div>
+    </div>
+
+    <!-- Gefundene Geräte -->
+    <div class="row" id="devicesContainer">
+        <!-- Geräte werden hier dynamisch eingefügt -->
+    </div>
+
+    <!-- Debug-Bereich -->
+    <div class="scanner-container">
+        <h4><i class="fas fa-terminal me-2"></i>Debug-Console</h4>
+        <div class="debug-section" id="debugInfo">
+            <span style="color: #95a5a6;">» System bereit für Scan...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Update Modal (unsichtbar) -->
+<div id="progressTracker" data-progress="0" data-scanned="0"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let discoveredDevices = [];
+let scanInProgress = false;
+let progressCheckInterval = null;
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    detectNetwork();
+});
+
+// Netzwerk erkennen
+function detectNetwork() {
+    fetch('/shelly/api/network-detect')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('detectedNetwork').textContent = data.subnet || '192.168.0.0/24';
+                document.getElementById('localIP').textContent = data.local_ip || 'Unbekannt';
+                document.getElementById('networkRange').textContent = data.network_range + '.x';
+                addDebugMessage(`Netzwerk erkannt: ${data.subnet}, Lokale IP: ${data.local_ip}`, 'info');
+            }
+        })
+        .catch(error => {
+            addDebugMessage(`Fehler bei Netzwerkerkennung: ${error}`, 'error');
+        });
+}
+
+// Vollständiger Netzwerk-Scan mit Fortschritts-Simulation
+function startNetworkScan() {
+    if (scanInProgress) {
+        showError('Ein Scan läuft bereits!');
+        return;
+    }
+
+    scanInProgress = true;
+    discoveredDevices = [];
+    let progressValue = 0;
+    
+    // UI vorbereiten
+    document.getElementById('devicesContainer').innerHTML = '';
+    document.getElementById('progressContainer').style.display = 'block';
+    document.getElementById('scanProgress').style.width = '0%';
+    document.getElementById('scanProgress').textContent = '0%';
+    document.getElementById('scanStatus').innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Starte Netzwerk-Scan...';
+    document.getElementById('fullScanBtn').disabled = true;
+    document.getElementById('quickScanBtn').disabled = true;
+    hideAlerts();
+    
+    addDebugMessage('Starte vollständigen Netzwerk-Scan (254 IPs)...', 'info');
+    
+    // Progress-Simulation während des Scans
+    progressCheckInterval = setInterval(() => {
+        if (progressValue < 95) {
+            // Langsam hochzählen basierend auf geschätzter Zeit
+            progressValue += Math.random() * 5 + 2;
+            if (progressValue > 95) progressValue = 95;
+            
+            updateProgress(progressValue, Math.floor(progressValue * 2.54));
+        }
+    }, 500);
+    
+    // Scan starten
+    fetch('/shelly/api/discover', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            timeout: 1,
+            workers: 50
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Progress-Simulation stoppen
+        if (progressCheckInterval) {
+            clearInterval(progressCheckInterval);
+            progressCheckInterval = null;
+        }
+        
+        scanInProgress = false;
+        document.getElementById('fullScanBtn').disabled = false;
+        document.getElementById('quickScanBtn').disabled = false;
+        
+        if (data.status === 'success') {
+            discoveredDevices = data.discovered;
+            updateStatistics();
+            displayDevices();
+            
+            // Progress auf 100%
+            updateProgress(100, 254);
+            
+            if (data.count > 0) {
+                showSuccess(`✓ ${data.count} Shelly-Gerät(e) gefunden!`);
+                addDebugMessage(`Scan abgeschlossen: ${data.count} Geräte gefunden`, 'success');
+                
+                // Geräte-Details loggen
+                data.discovered.forEach(device => {
+                    addDebugMessage(`  → ${device.name} (${device.ip}) - ${device.model}`, 'device');
+                });
+            } else {
+                showError('Keine Shelly-Geräte im Netzwerk gefunden.');
+                addDebugMessage('Scan abgeschlossen: Keine Geräte gefunden', 'warning');
+            }
+            
+            // Progress-Bar nach 3 Sekunden ausblenden
+            setTimeout(() => {
+                document.getElementById('progressContainer').style.display = 'none';
+            }, 3000);
+        } else {
+            showError('Scan fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
+            addDebugMessage(`Scan-Fehler: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        if (progressCheckInterval) {
+            clearInterval(progressCheckInterval);
+            progressCheckInterval = null;
+        }
+        
+        scanInProgress = false;
+        document.getElementById('fullScanBtn').disabled = false;
+        document.getElementById('quickScanBtn').disabled = false;
+        document.getElementById('progressContainer').style.display = 'none';
+        
+        showError('Netzwerkfehler: ' + error);
+        addDebugMessage(`Netzwerkfehler: ${error}`, 'error');
+    });
+}
+
+// Progress aktualisieren
+function updateProgress(percentage, scanned) {
+    const progressBar = document.getElementById('scanProgress');
+    const statusText = document.getElementById('scanStatus');
+    
+    progressBar.style.width = percentage + '%';
+    progressBar.textContent = Math.round(percentage) + '%';
+    
+    if (scanned > 0) {
+        statusText.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Gescannt: ${scanned}/254 IPs`;
+    }
+}
+
+// Schnell-Scan
+function startQuickScan() {
+    if (scanInProgress) {
+        showError('Ein Scan läuft bereits!');
+        return;
+    }
+
+    addDebugMessage('Starte Schnell-Scan...', 'info');
+    
+    document.getElementById('quickScanBtn').disabled = true;
+    
+    fetch('/shelly/api/scan')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('quickScanBtn').disabled = false;
+            
+            if (data.status === 'success' && data.devices) {
+                discoveredDevices = data.devices;
+                updateStatistics();
+                displayDevices();
+                
+                if (data.found_count > 0) {
+                    showSuccess(`${data.found_count} Gerät(e) im Schnell-Scan gefunden!`);
+                } else {
+                    showError('Keine Geräte im Schnell-Scan gefunden.');
+                }
+            }
+        })
+        .catch(error => {
+            document.getElementById('quickScanBtn').disabled = false;
+            showError('Schnell-Scan fehlgeschlagen: ' + error);
+            addDebugMessage(`Schnell-Scan Fehler: ${error}`, 'error');
+        });
+}
+
+// Statistiken aktualisieren
+function updateStatistics() {
+    const total = discoveredDevices.length;
+    const online = discoveredDevices.filter(d => d.online !== false).length;
+    const offline = total - online;
+    
+    document.getElementById('foundDevices').textContent = total;
+    document.getElementById('onlineDevices').textContent = online;
+    document.getElementById('offlineDevices').textContent = offline;
+}
+
+// Geräte anzeigen
+function displayDevices() {
+    const container = document.getElementById('devicesContainer');
+    container.innerHTML = '';
+    
+    if (discoveredDevices.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Keine Shelly-Geräte gefunden. Bitte starten Sie einen Netzwerk-Scan.
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    discoveredDevices.forEach((device, index) => {
+        const isOnline = device.online !== false;
+        const deviceHtml = `
+            <div class="col-lg-6">
+                <div class="device-card ${isOnline ? 'online' : 'offline'}">
+                    <div class="device-header">
+                        <div class="device-name">
+                            <i class="fas fa-plug me-2"></i>${device.name || device.ip}
+                        </div>
+                        <div>
+                            <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
+                            <span class="text-muted">${isOnline ? 'Online' : 'Offline'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="device-info">
+                        <div class="info-item">
+                            <div class="info-label">IP-Adresse</div>
+                            <div class="info-value">${device.ip}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Modell</div>
+                            <div class="info-value">${device.model || 'Unbekannt'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">MAC-Adresse</div>
+                            <div class="info-value">${device.mac || 'Unbekannt'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Firmware</div>
+                            <div class="info-value">${device.firmware || 'Unbekannt'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="device-controls mt-3">
+                        <button class="control-btn on" onclick="switchDevice('${device.ip}', true)">
+                            <i class="fas fa-power-off me-1"></i>Ein
+                        </button>
+                        <button class="control-btn off" onclick="switchDevice('${device.ip}', false)">
+                            <i class="fas fa-power-off me-1"></i>Aus
+                        </button>
+                        <button class="control-btn toggle" onclick="toggleDevice('${device.ip}')">
+                            <i class="fas fa-sync-alt me-1"></i>Toggle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.innerHTML += deviceHtml;
+    });
+}
+
+// Gerät schalten
+function switchDevice(ip, turnOn) {
+    const action = turnOn ? 'on' : 'off';
+    addDebugMessage(`Schalte Gerät ${ip} ${turnOn ? 'EIN' : 'AUS'}...`, 'command');
+    
+    fetch(`/shelly/api/device/${ip}/${action}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess(`Gerät ${ip} wurde ${turnOn ? 'eingeschaltet' : 'ausgeschaltet'}`);
+            addDebugMessage(`✓ Gerät ${ip} erfolgreich ${turnOn ? 'eingeschaltet' : 'ausgeschaltet'}`, 'success');
+        } else {
+            showError(`Fehler beim Schalten: ${data.error}`);
+            addDebugMessage(`✗ Fehler beim Schalten von ${ip}: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        showError('Netzwerkfehler: ' + error);
+        addDebugMessage(`Netzwerkfehler beim Schalten: ${error}`, 'error');
+    });
+}
+
+// Gerät togglen
+function toggleDevice(ip) {
+    addDebugMessage(`Toggle Gerät ${ip}...`, 'command');
+    
+    fetch(`/shelly/api/toggle/${ip}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const newState = data.is_on ? 'EIN' : 'AUS';
+            showSuccess(`Gerät ${ip} ist jetzt ${newState}`);
+            addDebugMessage(`✓ Gerät ${ip} erfolgreich umgeschaltet auf ${newState}`, 'success');
+        } else {
+            showError(`Toggle fehlgeschlagen: ${data.error}`);
+            addDebugMessage(`✗ Toggle fehlgeschlagen für ${ip}: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        showError('Netzwerkfehler: ' + error);
+        addDebugMessage(`Netzwerkfehler beim Toggle: ${error}`, 'error');
+    });
+}
+
+// UI-Hilfsfunktionen
+function showSuccess(message) {
+    document.getElementById('successMessage').textContent = message;
+    document.getElementById('successAlert').style.display = 'block';
+    setTimeout(hideAlerts, 5000);
+}
+
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    document.getElementById('errorAlert').style.display = 'block';
+    setTimeout(hideAlerts, 5000);
+}
+
+function hideAlerts() {
+    document.getElementById('successAlert').style.display = 'none';
+    document.getElementById('errorAlert').style.display = 'none';
+}
+
+function addDebugMessage(message, type = 'info') {
+    const debugDiv = document.getElementById('debugInfo');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    let color = '#95a5a6';
+    let prefix = '»';
+    
+    switch(type) {
+        case 'success':
+            color = '#27ae60';
+            prefix = '✓';
+            break;
+        case 'error':
+            color = '#e74c3c';
+            prefix = '✗';
+            break;
+        case 'warning':
+            color = '#f39c12';
+            prefix = '⚠';
+            break;
+        case 'command':
+            color = '#3498db';
+            prefix = '→';
+            break;
+        case 'device':
+            color = '#9b59b6';
+            prefix = '◆';
+            break;
+        case 'info':
+        default:
+            color = '#ecf0f1';
+            prefix = '»';
+    }
+    
+    debugDiv.innerHTML += `<div><span style="color: #7f8c8d;">[${timestamp}]</span> <span style="color: ${color};">${prefix} ${message}</span></div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+}
+</script>
+{% endblock %}
+
+<!-- Erstellt von Hans Hahn - Alle Rechte vorbehalten -->

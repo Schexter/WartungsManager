@@ -1,0 +1,58 @@
+# WartungsManager - Touch-optimierte Web-Anwendung
+# Python 3.11.8 + Flask + SQLite (STABILE VERSIONEN)
+
+# Core Dependencies
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+Flask-WTF==1.1.1
+WTForms==3.0.1
+
+# Database (Python 3.11 getestet)
+SQLAlchemy>=2.0.23 # Erforderlich für Python 3.13+ Kompatibilität
+
+# Environment & Configuration
+python-dotenv==1.0.0
+
+# Web Server (Production)
+gunicorn==21.2.0
+
+# Development Tools
+Flask-DebugToolbar==0.13.1
+
+# PDF Generation (für Reports)
+reportlab==4.0.4
+
+# Date/Time Handling
+python-dateutil==2.8.2
+
+# HTTP Requests (für APIs)
+requests==2.31.0
+
+# Logging
+structlog==23.1.0
+
+# Testing
+pytest==7.4.2
+pytest-flask==1.2.0
+pytest-cov==4.1.0
+
+# Code Quality
+black==23.7.0
+flake8==6.0.0
+isort==5.12.0
+
+# Security
+werkzeug==2.3.7
+cryptography==41.0.4
+
+# Touch-UI Enhancement
+# (Werden über CDN eingebunden)
+# Bootstrap 5.3.x
+# Chart.js 4.x
+# Font Awesome 6.x
+
+# 62mm Thermodrucker Support (NEU: 26.06.2025)
+python-escpos==3.0a9    # ESC/POS Thermodrucker-Treiber
+qrcode==7.4.2           # QR-Code Generierung für Etiketten
+# Pillow==10.0.1        # Bildverarbeitung (bereits in reportlab enthalten)

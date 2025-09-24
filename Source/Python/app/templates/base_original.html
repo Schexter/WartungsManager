@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{% block title %}WartungsManager{% endblock %}</title>
+    
+    <!-- Bootstrap 5 für Touch-optimierte UI -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom Touch-optimierte CSS -->
+    <link href="{{ url_for('static', filename='css/touch-ui.css') }}" rel="stylesheet">
+    
+    <style>
+        :root {
+            --touch-primary: #007bff;
+            --touch-success: #28a745;
+            --touch-danger: #dc3545;
+            --touch-warning: #ffc107;
+            --touch-spacing: 8px;
+        }
+        
+        /* Touch-optimierte Button-Grundlagen */
+        .btn-touch {
+            min-height: 60px;
+            min-width: 120px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 12px;
+            margin: var(--touch-spacing);
+            padding: 15px 20px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-touch:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-touch:focus {
+            outline: 3px solid rgba(0, 123, 255, 0.3);
+            outline-offset: 2px;
+        }
+        
+        /* Touch-freundliche hover states nur für Desktop */
+        @media (hover: hover) and (pointer: fine) {
+            .btn-touch:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            }
+        }
+        
+        /* Große Touch-Bereiche für Navigation */
+        .nav-touch {
+            padding: 20px;
+            font-size: 16px;
+        }
+        
+        /* Status-Display mit großer Schrift */
+        .status-display {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 16px 0;
+            text-align: center;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .timer-large {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--touch-primary);
+            font-family: 'Courier New', monospace;
+        }
+        
+        .total-hours {
+            font-size: 1.5rem;
+            color: #6c757d;
+            margin-top: 12px;
+        }
+        
+        /* Grid für Touch-Buttons */
+        .touch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--touch-spacing);
+            padding: var(--touch-spacing);
+        }
+        
+        /* Responsive Design für verschiedene Bildschirmgrößen */
+        @media (max-width: 768px) {
+            .touch-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .timer-large {
+                font-size: 2.5rem;
+            }
+            
+            .btn-touch {
+                min-height: 70px;
+                font-size: 16px;
+            }
+        }
+        
+        @media (min-width: 1200px) {
+            .touch-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        /* Scrollbar-Styling für Touch */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 6px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand fs-4 fw-bold" href="{{ url_for('main.index') }}">
+                <i class="fas fa-cogs me-2"></i>WartungsManager
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('main.index') }}">
+                            <i class="fas fa-home me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('main.bulk_fuelling') }}">
+                            <i class="fas fa-layer-group me-1"></i>Bulk-Füllung
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('fuelling.index') }}">
+                            <i class="fas fa-play-circle me-1"></i>Füllung
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('maintenance.index') }}">
+                            <i class="fas fa-wrench me-1"></i>Wartung
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('main.flaschen_annehmen') }}">
+                            <i class="fas fa-inbox me-1"></i>Flaschen-Annahme
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('main.kundenmanager') }}">
+                            <i class="fas fa-users me-1"></i>Kundenmanager
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('fuellmanager.index') }}">
+                            <i class="fas fa-fill-drip me-1"></i>Füllmanager
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-touch" href="{{ url_for('protocol.index') }}">
+                            <i class="fas fa-clipboard-list me-1"></i>Protokoll
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="container-fluid py-4">
+        {% block content %}
+        <!-- Inhalt wird von Child-Templates eingefügt -->
+        {% endblock %}
+    </main>
+
+    <!-- Status Bar -->
+    <footer class="bg-dark text-light py-3 mt-auto">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <span class="badge bg-success me-2">
+                        <i class="fas fa-wifi me-1"></i>FRITZ!Box: 192.168.0.x
+                    </span>
+                    <span class="badge bg-info">
+                        <i class="fas fa-database me-1"></i>SQLite
+                    </span>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="current-time"></span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Live-Uhr aktualisieren
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('de-DE');
+            document.getElementById('current-time').textContent = timeString;
+        }
+        
+        // Uhr jede Sekunde aktualisieren
+        setInterval(updateTime, 1000);
+        updateTime(); // Sofort anzeigen
+        
+        // Touch-Feedback für alle Buttons
+        document.querySelectorAll('.btn-touch').forEach(button => {
+            button.addEventListener('touchstart', function() {
+                this.style.transform = 'scale(0.95)';
+            });
+            
+            button.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 100);
+            });
+        });
+        
+        // Verhindere Zoom bei Doppeltipp (iOS Safari)
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+    
+    {% block scripts %}
+    <!-- Zusätzliche Scripts von Child-Templates -->
+    {% endblock %}
+</body>
+</html>

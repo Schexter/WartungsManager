@@ -1,0 +1,820 @@
+{% extends "base.html" %}
+
+{% block title %}Verbesserte Flaschen-Annahme - WartungsManager{% endblock %}
+
+{% block content %}
+<style>
+/* Zusätzliche Styles für bessere UX */
+.kunde-vorschlag {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.kunde-vorschlag:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.kunde-vorschlag.selected {
+    background-color: #e8f5e9;
+    border-color: #4caf50 !important;
+}
+
+.relevanz-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.quick-action-btn {
+    transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+    transform: scale(1.05);
+}
+
+.favoriten-kunde {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.favoriten-kunde:hover {
+    background-color: #f5f5f5;
+    transform: translateY(-2px);
+}
+
+/* Scanner Animation */
+@keyframes scan-line {
+    0% { top: 0; }
+    100% { top: 100%; }
+}
+
+.scanner-active {
+    position: relative;
+    overflow: hidden;
+}
+
+.scanner-active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #4caf50;
+    animation: scan-line 2s linear infinite;
+}
+
+/* Touch-optimierte Elemente */
+.touch-target {
+    min-height: 48px;
+    min-width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.schnell-eingabe {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+</style>
+
+<!-- Header mit Live-Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-4 mb-0">
+                    <i class="fas fa-inbox me-3"></i>Flaschen Annehmen
+                </h1>
+                <p class="text-muted fs-5">Intelligente Kundensuche & schnelle Annahme</p>
+            </div>
+            <div class="text-end">
+                <div class="badge bg-success fs-6 mb-2">
+                    <i class="fas fa-circle me-1"></i>System bereit
+                </div>
+                <div>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="aktuelle-zeit">--:--</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schnell-Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3 col-6">
+        <div class="card border-primary text-center quick-stat">
+            <div class="card-body p-3">
+                <h3 class="text-primary mb-0" id="stat-heute">0</h3>
+                <small>Heute angenommen</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-warning text-center quick-stat">
+            <div class="card-body p-3">
+                <h3 class="text-warning mb-0" id="stat-warteliste">0</h3>
+                <small>In Warteliste</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-success text-center quick-stat">
+            <div class="card-body p-3">
+                <h3 class="text-success mb-0" id="stat-kunden">0</h3>
+                <small>Aktive Kunden</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-info text-center quick-stat">
+            <div class="card-body p-3">
+                <h3 class="text-info mb-0" id="stat-flaschen">0</h3>
+                <small>Registrierte Flaschen</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Favoriten-Kunden für Schnellzugriff -->
+<div class="row mb-4" id="favoriten-section">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="fas fa-star me-2"></i>Häufige Kunden - Schnellauswahl
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row" id="favoriten-kunden">
+                    <!-- Wird dynamisch geladen -->
+                    <div class="col-12 text-center p-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Laden...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hauptformular -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-plus me-2"></i>Neue Annahme
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Schnell-Eingabe -->
+                <div class="schnell-eingabe">
+                    <h6 class="mb-3">
+                        <i class="fas fa-lightning me-2"></i>Schnell-Eingabe
+                    </h6>
+                    
+                    <!-- Intelligente Kundensuche -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-search me-1"></i>Kunde suchen oder anlegen:
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-primary text-white">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="kunde-schnellsuche" 
+                                       placeholder="Name, Telefon, Email oder Mitgliedsnummer eingeben..."
+                                       autocomplete="off">
+                                <button class="btn btn-success" type="button" id="kunde-quick-create">
+                                    <i class="fas fa-plus me-1"></i>Neu
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Beginnen Sie zu tippen für Vorschläge oder klicken Sie "Neu" für Quick-Create
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Kunden-Vorschläge -->
+                    <div id="kunden-vorschlaege" style="display: none;">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                    
+                    <!-- Ausgewählter Kunde -->
+                    <div id="ausgewaehlter-kunde" class="alert alert-success" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong><i class="fas fa-check-circle me-2"></i>Kunde ausgewählt:</strong>
+                                <span id="kunde-info"></span>
+                            </div>
+                            <button class="btn btn-sm btn-outline-success" onclick="kundeAbwaehlen()">
+                                <i class="fas fa-times me-1"></i>Ändern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Flaschen-Details (optional) -->
+                <div class="card border-secondary mb-3">
+                    <div class="card-header bg-light">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="eigene-flasche-toggle" onchange="toggleEigeneFlasche()">
+                            <label class="form-check-label" for="eigene-flasche-toggle">
+                                <strong>Eigene Flasche registrieren</strong>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="card-body" id="flasche-details" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-barcode me-1"></i>Barcode/QR scannen:
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="flasche-barcode" 
+                                               placeholder="Scannen oder eingeben">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="startKameraScanner()">
+                                            <i class="fas fa-camera"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-tag me-1"></i>Externe Nummer:
+                                    </label>
+                                    <input type="text" class="form-control" id="flasche-externe-nummer" 
+                                           placeholder="Kundeneigene Nummer">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-ruler me-1"></i>Größe:
+                                    </label>
+                                    <select class="form-select" id="flasche-groesse">
+                                        <option value="10">10 Liter</option>
+                                        <option value="11" selected>11 Liter</option>
+                                        <option value="12">12 Liter</option>
+                                        <option value="15">15 Liter</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Füll-Parameter -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-gauge me-1"></i>Gewünschter Druck:
+                        </label>
+                        <select class="form-select form-select-lg" id="gewuenschter-druck">
+                            <option value="200">200 bar</option>
+                            <option value="230">230 bar</option>
+                            <option value="300" selected>300 bar</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-exclamation me-1"></i>Priorität:
+                        </label>
+                        <select class="form-select form-select-lg" id="prioritaet">
+                            <option value="normal" selected>Normal</option>
+                            <option value="hoch">Express</option>
+                            <option value="niedrig">Niedrig</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-comment me-1"></i>Notizen:
+                        </label>
+                        <input type="text" class="form-control form-control-lg" id="notizen" 
+                               placeholder="Optional">
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="row">
+                    <div class="col-12 text-center">
+                        <button class="btn btn-success btn-lg px-5 touch-target" onclick="flascheZurWarteliste()">
+                            <i class="fas fa-plus-circle me-2"></i>ZUR WARTELISTE HINZUFÜGEN
+                        </button>
+                        <button class="btn btn-outline-secondary btn-lg ms-2" onclick="formularZuruecksetzen()">
+                            <i class="fas fa-redo me-2"></i>Zurücksetzen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick-Create Modal -->
+<div class="modal fade" id="quickCreateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>Schnell-Kunde anlegen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Vorname <span class="text-danger">*</span>:</label>
+                    <input type="text" class="form-control form-control-lg" id="quick-vorname" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nachname:</label>
+                    <input type="text" class="form-control" id="quick-nachname">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Telefon:</label>
+                    <input type="tel" class="form-control" id="quick-telefon" placeholder="+49...">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Externe Nummer:</label>
+                    <input type="text" class="form-control" id="quick-externe-nummer" 
+                           placeholder="Vereins-ID o.ä.">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-success" onclick="quickKundeErstellen()">
+                    <i class="fas fa-check me-1"></i>Kunde anlegen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// GLOBALE VARIABLEN
+// ============================================================================
+
+let ausgewaehlterKunde = null;
+let suchTimeout = null;
+let favoritenKunden = [];
+
+// ============================================================================
+// INITIALISIERUNG
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Zeit-Anzeige
+    aktualisiereZeit();
+    setInterval(aktualisiereZeit, 1000);
+    
+    // Lade initiale Daten
+    ladeStatistiken();
+    ladeFavoritenKunden();
+    
+    // Event Listener
+    setupEventListeners();
+    
+    // Auto-Refresh
+    setInterval(() => {
+        ladeStatistiken();
+    }, 60000);
+    
+    // Fokus auf Suchfeld
+    document.getElementById('kunde-schnellsuche').focus();
+});
+
+function setupEventListeners() {
+    // Intelligente Suche
+    const suchfeld = document.getElementById('kunde-schnellsuche');
+    suchfeld.addEventListener('input', function(e) {
+        clearTimeout(suchTimeout);
+        const suchbegriff = e.target.value.trim();
+        
+        if (suchbegriff.length >= 1) {
+            suchTimeout = setTimeout(() => intelligenteSuche(suchbegriff), 300);
+        } else {
+            document.getElementById('kunden-vorschlaege').style.display = 'none';
+        }
+    });
+    
+    // Enter-Taste in Suche
+    suchfeld.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const vorschlaege = document.querySelectorAll('.kunde-vorschlag');
+            if (vorschlaege.length > 0) {
+                vorschlaege[0].click();
+            }
+        }
+    });
+    
+    // Quick-Create Button
+    document.getElementById('kunde-quick-create').addEventListener('click', function() {
+        const suchbegriff = document.getElementById('kunde-schnellsuche').value.trim();
+        oeffneQuickCreate(suchbegriff);
+    });
+}
+
+// ============================================================================
+// INTELLIGENTE KUNDENSUCHE
+// ============================================================================
+
+async function intelligenteSuche(suchbegriff) {
+    try {
+        const response = await fetch(`/api/kunden/intelligente-suche?q=${encodeURIComponent(suchbegriff)}&limit=5`);
+        const result = await response.json();
+        
+        if (result.success) {
+            zeigeKundenVorschlaege(result.kunden);
+        }
+    } catch (error) {
+        console.error('Fehler bei Suche:', error);
+    }
+}
+
+function zeigeKundenVorschlaege(kunden) {
+    const container = document.getElementById('kunden-vorschlaege');
+    
+    if (kunden.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Kein Kunde gefunden - klicken Sie "Neu" für Quick-Create
+            </div>
+        `;
+        container.style.display = 'block';
+        return;
+    }
+    
+    let html = '<div class="list-group mb-3">';
+    
+    kunden.forEach((kunde, index) => {
+        const relevanzClass = kunde.relevanz_score > 0.9 ? 'success' : 
+                            kunde.relevanz_score > 0.7 ? 'primary' : 'secondary';
+        
+        html += `
+            <div class="list-group-item list-group-item-action kunde-vorschlag ${index === 0 ? 'active' : ''}"
+                 onclick="waehleKunde(${kunde.id}, '${kunde.vollname}', '${kunde.mitgliedsnummer}')">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-user me-2"></i>${kunde.vollname}
+                        </h6>
+                        <p class="mb-1 small">
+                            <span class="badge bg-primary">${kunde.mitgliedsnummer}</span>
+                            ${kunde.telefon ? `<i class="fas fa-phone ms-2 me-1"></i>${kunde.telefon}` : ''}
+                            ${kunde.email ? `<i class="fas fa-envelope ms-2 me-1"></i>${kunde.email}` : ''}
+                        </p>
+                        <small class="text-muted">
+                            ${kunde.anzahl_flaschen} Flasche(n) registriert
+                            ${kunde.letzter_besuch ? ` • Letzter Besuch vor ${kunde.tage_seit_besuch} Tag(en)` : ''}
+                        </small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-${relevanzClass} relevanz-badge">
+                            ${Math.round(kunde.relevanz_score * 100)}% Match
+                        </span>
+                        <br>
+                        <small class="text-muted">${kunde.match_typ}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+// ============================================================================
+// KUNDEN-VERWALTUNG
+// ============================================================================
+
+function waehleKunde(kundeId, kundeName, mitgliedsnummer) {
+    ausgewaehlterKunde = {
+        id: kundeId,
+        name: kundeName,
+        mitgliedsnummer: mitgliedsnummer
+    };
+    
+    // UI aktualisieren
+    document.getElementById('kunde-schnellsuche').value = '';
+    document.getElementById('kunden-vorschlaege').style.display = 'none';
+    document.getElementById('ausgewaehlter-kunde').style.display = 'block';
+    document.getElementById('kunde-info').innerHTML = `
+        ${kundeName} <span class="badge bg-primary ms-2">${mitgliedsnummer}</span>
+    `;
+    
+    // Besuch aktualisieren
+    aktualisiereKundenBesuch(kundeId);
+    
+    showToast('success', `Kunde ${kundeName} ausgewählt`);
+}
+
+function kundeAbwaehlen() {
+    ausgewaehlterKunde = null;
+    document.getElementById('ausgewaehlter-kunde').style.display = 'none';
+    document.getElementById('kunde-schnellsuche').value = '';
+    document.getElementById('kunde-schnellsuche').focus();
+}
+
+async function aktualisiereKundenBesuch(kundeId) {
+    try {
+        await fetch(`/api/kunden/${kundeId}/besuch`, { method: 'POST' });
+    } catch (error) {
+        console.error('Fehler beim Aktualisieren des Besuchs:', error);
+    }
+}
+
+// ============================================================================
+// QUICK-CREATE
+// ============================================================================
+
+function oeffneQuickCreate(vorgabe = '') {
+    const modal = new bootstrap.Modal(document.getElementById('quickCreateModal'));
+    
+    // Vorgabe-Wert setzen
+    if (vorgabe) {
+        const teile = vorgabe.split(' ');
+        document.getElementById('quick-vorname').value = teile[0] || '';
+        document.getElementById('quick-nachname').value = teile.slice(1).join(' ') || '';
+    } else {
+        document.getElementById('quick-vorname').value = '';
+        document.getElementById('quick-nachname').value = '';
+    }
+    
+    document.getElementById('quick-telefon').value = '';
+    document.getElementById('quick-externe-nummer').value = '';
+    
+    modal.show();
+    
+    // Fokus
+    setTimeout(() => {
+        document.getElementById('quick-vorname').focus();
+    }, 300);
+}
+
+async function quickKundeErstellen() {
+    const vorname = document.getElementById('quick-vorname').value.trim();
+    const nachname = document.getElementById('quick-nachname').value.trim();
+    const telefon = document.getElementById('quick-telefon').value.trim();
+    const externeNummer = document.getElementById('quick-externe-nummer').value.trim();
+    
+    if (!vorname) {
+        showToast('error', 'Vorname ist erforderlich!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/kunden/quick-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                vorname: vorname,
+                nachname: nachname,
+                telefon: telefon,
+                externe_nummer: externeNummer
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Modal schließen
+            bootstrap.Modal.getInstance(document.getElementById('quickCreateModal')).hide();
+            
+            // Kunde auswählen
+            waehleKunde(result.kunde.id, result.kunde.vollname, result.kunde.mitgliedsnummer);
+            
+            // Favoriten neu laden
+            ladeFavoritenKunden();
+            
+            showToast('success', result.message);
+        } else {
+            if (result.duplikate && result.duplikate.length > 0) {
+                // Zeige Duplikate
+                let duplikatInfo = 'Mögliche Duplikate gefunden:\n';
+                result.duplikate.forEach(dup => {
+                    duplikatInfo += `- ${dup.kunde.vollname} (${dup.grund})\n`;
+                });
+                showToast('warning', duplikatInfo);
+            } else {
+                showToast('error', result.error || 'Fehler beim Anlegen');
+            }
+        }
+    } catch (error) {
+        console.error('Fehler:', error);
+        showToast('error', 'Netzwerkfehler beim Anlegen');
+    }
+}
+
+// ============================================================================
+// FAVORITEN
+// ============================================================================
+
+async function ladeFavoritenKunden() {
+    try {
+        const response = await fetch('/api/kunden/favoriten?limit=8');
+        const result = await response.json();
+        
+        if (result.success) {
+            zeigeFavoritenKunden(result.favoriten);
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Favoriten:', error);
+    }
+}
+
+function zeigeFavoritenKunden(kunden) {
+    const container = document.getElementById('favoriten-kunden');
+    
+    if (kunden.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted">Noch keine häufigen Kunden</div>';
+        return;
+    }
+    
+    let html = '';
+    
+    kunden.forEach(kunde => {
+        const tageSeitBesuch = kunde.tage_seit_besuch || '?';
+        
+        html += `
+            <div class="col-md-3 col-sm-6 mb-2">
+                <div class="card favoriten-kunde h-100" onclick="waehleKunde(${kunde.id}, '${kunde.vollname}', '${kunde.mitgliedsnummer}')">
+                    <div class="card-body p-2">
+                        <h6 class="mb-1">${kunde.vorname} ${kunde.nachname || ''}</h6>
+                        <small class="text-muted d-block">${kunde.mitgliedsnummer}</small>
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>vor ${tageSeitBesuch} Tag(en)
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// FLASCHEN-VERWALTUNG
+// ============================================================================
+
+function toggleEigeneFlasche() {
+    const checkbox = document.getElementById('eigene-flasche-toggle');
+    const details = document.getElementById('flasche-details');
+    
+    if (checkbox.checked) {
+        details.style.display = 'block';
+        document.getElementById('flasche-barcode').focus();
+    } else {
+        details.style.display = 'none';
+    }
+}
+
+async function flascheZurWarteliste() {
+    if (!ausgewaehlterKunde) {
+        showToast('error', 'Bitte wählen Sie zuerst einen Kunden aus!');
+        document.getElementById('kunde-schnellsuche').focus();
+        return;
+    }
+    
+    // Sammle Daten
+    const daten = {
+        kunde_id: ausgewaehlterKunde.id,
+        gewuenschter_druck: parseInt(document.getElementById('gewuenschter-druck').value),
+        prioritaet: document.getElementById('prioritaet').value,
+        notizen: document.getElementById('notizen').value.trim()
+    };
+    
+    // Flaschendaten wenn eigene Flasche
+    if (document.getElementById('eigene-flasche-toggle').checked) {
+        daten.flasche = {
+            barcode: document.getElementById('flasche-barcode').value.trim(),
+            externe_nummer: document.getElementById('flasche-externe-nummer').value.trim(),
+            groesse: parseFloat(document.getElementById('flasche-groesse').value)
+        };
+    }
+    
+    try {
+        // TODO: API-Call implementieren
+        console.log('Zur Warteliste hinzufügen:', daten);
+        
+        showToast('success', `Flasche für ${ausgewaehlterKunde.name} zur Warteliste hinzugefügt!`);
+        
+        // Formular zurücksetzen
+        formularZuruecksetzen();
+        
+        // Statistiken aktualisieren
+        ladeStatistiken();
+        
+    } catch (error) {
+        console.error('Fehler:', error);
+        showToast('error', 'Fehler beim Hinzufügen zur Warteliste');
+    }
+}
+
+// ============================================================================
+// UTILITY FUNKTIONEN
+// ============================================================================
+
+function formularZuruecksetzen() {
+    kundeAbwaehlen();
+    document.getElementById('eigene-flasche-toggle').checked = false;
+    toggleEigeneFlasche();
+    document.getElementById('flasche-barcode').value = '';
+    document.getElementById('flasche-externe-nummer').value = '';
+    document.getElementById('flasche-groesse').value = '11';
+    document.getElementById('gewuenschter-druck').value = '300';
+    document.getElementById('prioritaet').value = 'normal';
+    document.getElementById('notizen').value = '';
+    
+    document.getElementById('kunde-schnellsuche').focus();
+}
+
+async function ladeStatistiken() {
+    try {
+        // TODO: Echte API-Calls
+        document.getElementById('stat-heute').textContent = '12';
+        document.getElementById('stat-warteliste').textContent = '5';
+        document.getElementById('stat-kunden').textContent = '234';
+        document.getElementById('stat-flaschen').textContent = '567';
+    } catch (error) {
+        console.error('Fehler beim Laden der Statistiken:', error);
+    }
+}
+
+function aktualisiereZeit() {
+    const jetzt = new Date();
+    const zeit = jetzt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('aktuelle-zeit').textContent = zeit;
+}
+
+function startKameraScanner() {
+    // TODO: Kamera-Scanner implementieren
+    showToast('info', 'Kamera-Scanner wird implementiert...');
+}
+
+// ============================================================================
+// TOAST-SYSTEM
+// ============================================================================
+
+function showToast(type, message) {
+    const toastContainer = document.querySelector('.toast-container');
+    const toastId = 'toast-' + Date.now();
+    
+    const bgClass = type === 'success' ? 'bg-success' : 
+                   type === 'error' ? 'bg-danger' : 
+                   type === 'warning' ? 'bg-warning' : 'bg-info';
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                type === 'error' ? 'exclamation-triangle' : 
+                type === 'warning' ? 'exclamation-circle' : 'info-circle';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-${icon} me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,366 @@
+<!-- Füllmanager Details-Seite mit Unterschrift -->
+{% extends "base.html" %}
+
+{% block title %}Füllvorgang {{ fuellvorgang.auftragsnummer }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2">
+                <i class="fas fa-fill-drip"></i> Füllvorgang {{ fuellvorgang.auftragsnummer }}
+                <span class="badge badge-{{ 'success' if fuellvorgang.status == 'abgeschlossen' else 'warning' }}">
+                    {{ fuellvorgang.status }}
+                </span>
+            </h1>
+        </div>
+    </div>
+
+    <!-- Kundeninformationen -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-user"></i> Kundeninformationen</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Name:</strong> {{ fuellvorgang.kunde.vollname }}</p>
+                    <p><strong>Mitgliedsnummer:</strong> {{ fuellvorgang.kunde.mitgliedsnummer }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Flasche:</strong> {{ fuellvorgang.flasche.flasche_nummer }}</p>
+                    <p><strong>Größe:</strong> {{ fuellvorgang.flasche.groesse_liter }} Liter</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Füllparameter -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-tachometer-alt"></i> Füllparameter</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="alert alert-light text-center">
+                        <h6>Restdruck</h6>
+                        <h3>{{ fuellvorgang.restdruck_bar }} bar</h3>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-primary text-center">
+                        <h6>Zieldruck</h6>
+                        <h3>{{ fuellvorgang.zieldruck_bar }} bar</h3>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-success text-center">
+                        <h6>Tatsächlicher Enddruck</h6>
+                        <h3>{{ fuellvorgang.tatsaechlicher_enddruck or '-' }} bar</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gasgemisch -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-flask"></i> Gasgemisch</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5>Sauerstoff</h5>
+                            <h2>{{ fuellvorgang.sauerstoff_prozent }}%</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-warning">
+                        <div class="card-body">
+                            <h5>Helium</h5>
+                            <h2>{{ fuellvorgang.helium_prozent }}%</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5>Stickstoff</h5>
+                            <h2>{{ fuellvorgang.stickstoff_prozent }}%</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% set berechnungen = fuellvorgang.get_berechnungen() %}
+            {% if berechnungen %}
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6>Maximum Operating Depth (MOD)</h6>
+                    <ul class="list-unstyled">
+                        <li>MOD (1.2 bar): {{ berechnungen.mod_1_2 }} m</li>
+                        <li>MOD (1.4 bar): {{ berechnungen.mod_1_4 }} m</li>
+                        <li>MOD (1.6 bar): {{ berechnungen.mod_1_6 }} m</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Equivalent Air Depth (END)</h6>
+                    <ul class="list-unstyled">
+                        <li>END bei 30m: {{ berechnungen.end_30m }} m</li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Preisberechnung -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-euro-sign"></i> Preisberechnung</h5>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td>Helium ({{ "%.2f"|format(fuellvorgang.preis_helium / 0.095) }} Bar·Liter × 0,095 €)</td>
+                        <td class="text-right">{{ "%.2f"|format(fuellvorgang.preis_helium) }} €</td>
+                    </tr>
+                    <tr>
+                        <td>Sauerstoff ({{ "%.2f"|format(fuellvorgang.preis_sauerstoff / 0.01) }} Bar·Liter × 0,01 €)</td>
+                        <td class="text-right">{{ "%.2f"|format(fuellvorgang.preis_sauerstoff) }} €</td>
+                    </tr>
+                    <tr>
+                        <td>Luft/Stickstoff ({{ "%.2f"|format(fuellvorgang.preis_luft / 0.002) }} Bar·Liter × 0,002 €)</td>
+                        <td class="text-right">{{ "%.2f"|format(fuellvorgang.preis_luft) }} €</td>
+                    </tr>
+                    <tr class="font-weight-bold">
+                        <td>Gesamtpreis</td>
+                        <td class="text-right text-primary">{{ "%.2f"|format(fuellvorgang.gesamtpreis) }} €</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Aktionen basierend auf Status -->
+    {% if fuellvorgang.status == 'angenommen' %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0"><i class="fas fa-play"></i> Füllvorgang starten</h5>
+        </div>
+        <div class="card-body text-center">
+            <form method="POST" action="{{ url_for('fuellmanager.start_fuellung', id=fuellvorgang.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn btn-warning btn-lg">
+                    <i class="fas fa-play"></i> Füllung starten
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    {% elif fuellvorgang.status == 'in_fuellung' %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="fas fa-stop"></i> Füllvorgang beenden</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('fuellmanager.beende_fuellung', id=fuellvorgang.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="form-group">
+                    <label for="tatsaechlicher_enddruck">Tatsächlicher Enddruck (bar)</label>
+                    <input type="number" class="form-control form-control-lg" 
+                           id="tatsaechlicher_enddruck" name="tatsaechlicher_enddruck"
+                           min="0" max="300" step="1" value="{{ fuellvorgang.zieldruck_bar }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="fuell_notizen">Anmerkungen (optional)</label>
+                    <textarea class="form-control" id="fuell_notizen" name="fuell_notizen" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-danger btn-lg btn-block">
+                    <i class="fas fa-stop"></i> Füllung beenden
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    {% elif fuellvorgang.status != 'abgeschlossen' and fuellvorgang.fuellende_zeit %}
+    <!-- Unterschrift erfassen -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-signature"></i> Bestätigung und Unterschrift</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <h6>Bitte bestätigen Sie die folgenden Angaben:</h6>
+                <ul>
+                    <li>Gasgemisch: O₂ {{ fuellvorgang.sauerstoff_prozent }}% | He {{ fuellvorgang.helium_prozent }}% | N₂ {{ fuellvorgang.stickstoff_prozent }}%</li>
+                    <li>Enddruck: {{ fuellvorgang.tatsaechlicher_enddruck }} bar</li>
+                    <li>Gesamtpreis: {{ "%.2f"|format(fuellvorgang.gesamtpreis) }} €</li>
+                </ul>
+            </div>
+            
+            <form method="POST" action="{{ url_for('fuellmanager.speichere_unterschrift', id=fuellvorgang.id) }}" 
+                  id="unterschriftForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                
+                <!-- Kundenunterschrift -->
+                <div class="form-group">
+                    <label>Unterschrift Kunde:</label>
+                    <div class="border rounded p-2 bg-light" style="touch-action: none;">
+                        <canvas id="kundenSignatur" width="600" height="200" 
+                                style="border: 1px solid #ccc; width: 100%; max-width: 600px;"></canvas>
+                    </div>
+                    <input type="hidden" id="kunden_signatur" name="kunden_signatur">
+                    <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="clearSignature('kundenSignatur')">
+                        <i class="fas fa-eraser"></i> Löschen
+                    </button>
+                </div>
+                
+                <!-- Mitarbeiterunterschrift -->
+                <div class="form-group">
+                    <label>Unterschrift Mitarbeiter:</label>
+                    <div class="border rounded p-2 bg-light" style="touch-action: none;">
+                        <canvas id="mitarbeiterSignatur" width="600" height="200" 
+                                style="border: 1px solid #ccc; width: 100%; max-width: 600px;"></canvas>
+                    </div>
+                    <input type="hidden" id="mitarbeiter_signatur" name="mitarbeiter_signatur">
+                    <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="clearSignature('mitarbeiterSignatur')">
+                        <i class="fas fa-eraser"></i> Löschen
+                    </button>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="bestaetigung" required>
+                    <label class="form-check-label" for="bestaetigung">
+                        Ich bestätige die Richtigkeit der obigen Angaben
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-success btn-lg btn-block">
+                    <i class="fas fa-check"></i> Füllvorgang abschließen
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Signaturen anzeigen (wenn vorhanden) -->
+    {% if fuellvorgang.signaturen %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-file-signature"></i> Unterschriften</h5>
+        </div>
+        <div class="card-body">
+            {% for signatur in fuellvorgang.signaturen %}
+            <div class="mb-3">
+                <h6>{{ 'Kunde' if signatur.signatur_typ == 'kunde' else 'Mitarbeiter' }}</h6>
+                <img src="{{ signatur.signatur_daten }}" class="img-fluid border" 
+                     style="max-height: 150px; background: white;">
+                <p class="text-muted small mt-1">
+                    Unterschrieben von {{ signatur.unterschrieben_von }} 
+                    am {{ signatur.unterschrieben_am.strftime('%d.%m.%Y %H:%M') }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Aktionsbuttons -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <a href="{{ url_for('fuellmanager.index') }}" class="btn btn-secondary btn-block">
+                <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+            </a>
+        </div>
+        {% if fuellvorgang.status == 'abgeschlossen' %}
+        <div class="col-md-6">
+            <a href="{{ url_for('fuellmanager.drucken', id=fuellvorgang.id) }}" 
+               class="btn btn-primary btn-block" target="_blank">
+                <i class="fas fa-print"></i> Beleg drucken
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script>
+// Signatur-Pads initialisieren
+var kundenPad = new SignaturePad(document.getElementById('kundenSignatur'), {
+    backgroundColor: 'rgb(255, 255, 255)'
+});
+
+var mitarbeiterPad = new SignaturePad(document.getElementById('mitarbeiterSignatur'), {
+    backgroundColor: 'rgb(255, 255, 255)'
+});
+
+// Canvas-Größe anpassen für mobile Geräte
+function resizeCanvas() {
+    var canvases = ['kundenSignatur', 'mitarbeiterSignatur'];
+    canvases.forEach(function(id) {
+        var canvas = document.getElementById(id);
+        var ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+    });
+    
+    kundenPad.clear();
+    mitarbeiterPad.clear();
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Signatur löschen
+function clearSignature(canvasId) {
+    if (canvasId === 'kundenSignatur') {
+        kundenPad.clear();
+    } else {
+        mitarbeiterPad.clear();
+    }
+}
+
+// Form Submit Handler
+$('#unterschriftForm').submit(function(e) {
+    e.preventDefault();
+    
+    if (kundenPad.isEmpty()) {
+        alert('Bitte Kundenunterschrift erfassen!');
+        return false;
+    }
+    
+    if (mitarbeiterPad.isEmpty()) {
+        alert('Bitte Mitarbeiterunterschrift erfassen!');
+        return false;
+    }
+    
+    // Signaturen als Base64 speichern
+    $('#kunden_signatur').val(kundenPad.toDataURL());
+    $('#mitarbeiter_signatur').val(mitarbeiterPad.toDataURL());
+    
+    // Form absenden
+    this.submit();
+});
+
+// Auto-Refresh für laufende Füllvorgänge
+{% if fuellvorgang.status == 'in_fuellung' %}
+setInterval(function() {
+    // Zeige aktuelle Fülldauer
+    var startZeit = new Date('{{ fuellvorgang.fuellstart_zeit.isoformat() }}');
+    var jetzt = new Date();
+    var dauer = Math.floor((jetzt - startZeit) / 1000 / 60); // Minuten
+    console.log('Fülldauer: ' + dauer + ' Minuten');
+}, 10000); // Alle 10 Sekunden
+{% endif %}
+</script>
+{% endblock %}

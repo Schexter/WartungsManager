@@ -1,0 +1,551 @@
+"""
+Shelly Discovery Web-Frontend - Integration ins WartungsManager Web-Interface
+"""
+
+from flask import Blueprint, request, jsonify, render_template_string, current_app
+import json
+import threading
+import time
+from pathlib import Path
+from datetime import datetime
+
+# Import der Discovery-Klassen
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from shelly_discovery_v2 import ShellyDiscovery, ShellyDevice, ShellyManager, NetworkDetector
+
+shelly_setup_bp = Blueprint('shelly_setup', __name__, url_prefix='/shelly-setup')
+
+# Globaler Scan-Status
+scan_status = {
+    'scanning': False,
+    'progress': 0,
+    'total': 0,
+    'found_devices': [],
+    'current_network': '',
+    'message': ''
+}
+
+def background_scan(subnet, ip_range=(1, 254)):
+    """Background-Scan-Thread"""
+    global scan_status
+    
+    scan_status['scanning'] = True
+    scan_status['progress'] = 0
+    scan_status['total'] = ip_range[1] - ip_range[0] + 1
+    scan_status['found_devices'] = []
+    scan_status['current_network'] = subnet
+    scan_status['message'] = f'Scanne {subnet}.0/24...'
+    
+    discovery = ShellyDiscovery(subnet)
+    
+    # Simuliere Progress (da der echte Scan keine Progress-Callbacks hat)
+    import concurrent.futures
+    from concurrent.futures import as_completed
+    
+    found_devices = []
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        futures = []
+        
+        for i in range(ip_range[0], ip_range[1] + 1):
+            ip = f"{subnet}.{i}"
+            futures.append(executor.submit(discovery.scan_ip, ip))
+        
+        completed = 0
+        for future in as_completed(futures):
+            completed += 1
+            scan_status['progress'] = completed
+            
+            device = future.result()
+            if device:
+                device_dict = device.to_dict()
+                found_devices.append(device_dict)
+                scan_status['found_devices'] = found_devices
+                scan_status['message'] = f"Gefunden: {device.model} auf {device.ip}"
+    
+    scan_status['scanning'] = False
+    scan_status['message'] = f"Scan abgeschlossen: {len(found_devices)} Geräte gefunden"
+
+@shelly_setup_bp.route('/')
+def setup_page():
+    """Haupt-Setup-Seite"""
+    template = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shelly Setup - WartungsManager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .setup-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        .setup-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .device-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        .device-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+        .device-card.selected-kompressor {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        .device-card.selected-widget {
+            border-color: #4caf50;
+            background: #f5fff5;
+        }
+        .btn-scan {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 12px 30px;
+            border-radius: 25px;
+            transition: transform 0.3s;
+        }
+        .btn-scan:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+        .progress-container {
+            display: none;
+        }
+        .progress-container.active {
+            display: block;
+        }
+        .network-selector {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .device-icon {
+            font-size: 2em;
+            margin-right: 10px;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .found-device-enter {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .role-selector {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .save-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+            display: none;
+        }
+        .save-button.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <h1 class="text-white text-center mb-4">
+            🔍 Shelly Auto-Discovery Setup
+        </h1>
+        
+        <!-- Netzwerk-Auswahl -->
+        <div class="setup-card">
+            <h3>📡 Schritt 1: Netzwerk wählen</h3>
+            <div class="network-selector">
+                <div id="network-detection">
+                    <button class="btn btn-primary" onclick="detectNetworks()">
+                        Netzwerke erkennen
+                    </button>
+                    <div id="detected-networks" class="mt-3"></div>
+                </div>
+                
+                <div class="mt-3">
+                    <label>Oder manuell eingeben:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="manual-subnet" 
+                               placeholder="192.168.0" value="192.168.0">
+                        <button class="btn btn-outline-secondary" onclick="setManualNetwork()">
+                            Verwenden
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <strong>Gewähltes Netzwerk:</strong> 
+                    <span id="selected-network" class="badge bg-primary">Nicht gewählt</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scan-Bereich -->
+        <div class="setup-card">
+            <h3>🔍 Schritt 2: Nach Shellys scannen</h3>
+            
+            <div class="mb-3">
+                <label>Scan-Methode:</label>
+                <select class="form-select" id="scan-method">
+                    <option value="quick">⚡ Schnell-Scan (IP .100-.150)</option>
+                    <option value="full">📡 Vollständiger Scan (IP .1-.254)</option>
+                    <option value="custom">🎯 Benutzerdefiniert</option>
+                </select>
+            </div>
+            
+            <div id="custom-range" style="display: none;">
+                <div class="row">
+                    <div class="col">
+                        <input type="number" class="form-control" id="ip-start" 
+                               placeholder="Start (z.B. 100)" value="100">
+                    </div>
+                    <div class="col">
+                        <input type="number" class="form-control" id="ip-end" 
+                               placeholder="Ende (z.B. 150)" value="150">
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-scan mt-3" onclick="startScan()">
+                🔍 Scan starten
+            </button>
+            
+            <!-- Progress -->
+            <div class="progress-container mt-3" id="progress-container">
+                <div class="progress" style="height: 30px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="scan-progress" style="width: 0%;">
+                        <span id="progress-text">0%</span>
+                    </div>
+                </div>
+                <div class="mt-2 text-center" id="scan-message">Initialisiere...</div>
+            </div>
+        </div>
+        
+        <!-- Gefundene Geräte -->
+        <div class="setup-card" id="devices-container" style="display: none;">
+            <h3>📱 Schritt 3: Geräte konfigurieren</h3>
+            <div id="devices-list"></div>
+        </div>
+        
+        <!-- Speichern Button -->
+        <button class="save-button" id="save-button" onclick="saveConfiguration()">
+            💾 Konfiguration speichern
+        </button>
+    </div>
+    
+    <script>
+        let selectedNetwork = null;
+        let foundDevices = [];
+        let scanInterval = null;
+        
+        function detectNetworks() {
+            fetch('/shelly-setup/api/detect-networks')
+                .then(r => r.json())
+                .then(data => {
+                    let html = '<div class="list-group">';
+                    data.networks.forEach(net => {
+                        html += `
+                            <button class="list-group-item list-group-item-action" 
+                                    onclick="selectNetwork('${net}')">
+                                <strong>${net}.0/24</strong>
+                                ${net.startsWith('192.168.0') ? ' (Empfohlen)' : ''}
+                            </button>
+                        `;
+                    });
+                    html += '</div>';
+                    document.getElementById('detected-networks').innerHTML = html;
+                })
+                .catch(err => {
+                    alert('Fehler bei Netzwerkerkennung: ' + err);
+                });
+        }
+        
+        function selectNetwork(subnet) {
+            selectedNetwork = subnet;
+            document.getElementById('selected-network').textContent = subnet + '.0/24';
+            document.getElementById('manual-subnet').value = subnet;
+        }
+        
+        function setManualNetwork() {
+            selectedNetwork = document.getElementById('manual-subnet').value;
+            document.getElementById('selected-network').textContent = selectedNetwork + '.0/24';
+        }
+        
+        document.getElementById('scan-method').addEventListener('change', (e) => {
+            document.getElementById('custom-range').style.display = 
+                e.target.value === 'custom' ? 'block' : 'none';
+        });
+        
+        function startScan() {
+            if (!selectedNetwork) {
+                alert('Bitte erst ein Netzwerk wählen!');
+                return;
+            }
+            
+            const method = document.getElementById('scan-method').value;
+            let ipRange = [1, 254];
+            
+            if (method === 'quick') {
+                ipRange = [100, 150];
+            } else if (method === 'custom') {
+                ipRange = [
+                    parseInt(document.getElementById('ip-start').value),
+                    parseInt(document.getElementById('ip-end').value)
+                ];
+            }
+            
+            // Start scan
+            fetch('/shelly-setup/api/start-scan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    subnet: selectedNetwork,
+                    ip_range: ipRange
+                })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    document.getElementById('progress-container').classList.add('active');
+                    scanInterval = setInterval(updateScanStatus, 500);
+                }
+            });
+        }
+        
+        function updateScanStatus() {
+            fetch('/shelly-setup/api/scan-status')
+                .then(r => r.json())
+                .then(data => {
+                    const percent = data.total > 0 ? 
+                        Math.round((data.progress / data.total) * 100) : 0;
+                    
+                    document.getElementById('scan-progress').style.width = percent + '%';
+                    document.getElementById('progress-text').textContent = percent + '%';
+                    document.getElementById('scan-message').textContent = data.message;
+                    
+                    // Update devices
+                    if (data.found_devices.length > foundDevices.length) {
+                        foundDevices = data.found_devices;
+                        displayDevices();
+                    }
+                    
+                    // Scan fertig?
+                    if (!data.scanning && scanInterval) {
+                        clearInterval(scanInterval);
+                        scanInterval = null;
+                        
+                        if (foundDevices.length > 0) {
+                            document.getElementById('devices-container').style.display = 'block';
+                            document.getElementById('save-button').classList.add('show');
+                        }
+                    }
+                });
+        }
+        
+        function displayDevices() {
+            let html = '';
+            
+            foundDevices.forEach((device, idx) => {
+                html += `
+                    <div class="device-card found-device-enter" id="device-${idx}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="device-icon">📱</span>
+                                <strong>${device.model}</strong>
+                                <span class="badge bg-info ms-2">Gen ${device.gen}</span>
+                                ${device.has_power_meter ? 
+                                    '<span class="badge bg-warning ms-2">⚡ Power Meter</span>' : ''}
+                            </div>
+                            <div>
+                                <code>${device.ip}</code>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2 small text-muted">
+                            MAC: ${device.mac || 'Unknown'}<br>
+                            Relais: ${device.relay_count}
+                        </div>
+                        
+                        <div class="role-selector">
+                            <input type="text" class="form-control form-control-sm" 
+                                   id="name-${idx}" placeholder="Gerätename (z.B. Kompressor)">
+                            <select class="form-select form-select-sm" id="role-${idx}"
+                                    onchange="updateDeviceRole(${idx})">
+                                <option value="">-- Keine Funktion --</option>
+                                <option value="kompressor">⚙️ Kompressor-Steuerung</option>
+                                <option value="widget">📊 Dashboard-Widget</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('devices-list').innerHTML = html;
+        }
+        
+        function updateDeviceRole(idx) {
+            const role = document.getElementById(`role-${idx}`).value;
+            const card = document.getElementById(`device-${idx}`);
+            
+            // Visual feedback
+            card.classList.remove('selected-kompressor', 'selected-widget');
+            
+            if (role === 'kompressor') {
+                // Nur ein Kompressor erlaubt
+                document.querySelectorAll('.device-card').forEach(c => {
+                    c.classList.remove('selected-kompressor');
+                });
+                document.querySelectorAll('select[id^="role-"]').forEach(s => {
+                    if (s.id !== `role-${idx}` && s.value === 'kompressor') {
+                        s.value = '';
+                    }
+                });
+                card.classList.add('selected-kompressor');
+            } else if (role === 'widget') {
+                card.classList.add('selected-widget');
+            }
+        }
+        
+        function saveConfiguration() {
+            const config = [];
+            
+            foundDevices.forEach((device, idx) => {
+                const role = document.getElementById(`role-${idx}`).value;
+                const name = document.getElementById(`name-${idx}`).value;
+                
+                if (role) {
+                    config.push({
+                        ...device,
+                        role: role,
+                        custom_name: name || device.model
+                    });
+                }
+            });
+            
+            if (config.length === 0) {
+                alert('Bitte mindestens ein Gerät konfigurieren!');
+                return;
+            }
+            
+            fetch('/shelly-setup/api/save-config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({devices: config})
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    alert('✅ Konfiguration gespeichert!\n\n' +
+                          'Sie können jetzt das Shelly-Dashboard unter\n' +
+                          '/shelly/dashboard aufrufen.');
+                    window.location.href = '/shelly/dashboard';
+                } else {
+                    alert('Fehler beim Speichern: ' + data.error);
+                }
+            });
+        }
+        
+        // Auto-detect on load
+        window.onload = function() {
+            detectNetworks();
+            
+            // Setze 192.168.0 als Standard
+            selectNetwork('192.168.0');
+        };
+    </script>
+</body>
+</html>
+    '''
+    
+    return render_template_string(template)
+
+@shelly_setup_bp.route('/api/detect-networks')
+def detect_networks():
+    """Netzwerke erkennen"""
+    detector = NetworkDetector()
+    networks = detector.get_physical_networks()
+    
+    # 192.168.0 priorisieren
+    if '192.168.0' in networks:
+        networks.remove('192.168.0')
+        networks.insert(0, '192.168.0')
+    
+    return jsonify({'networks': networks})
+
+@shelly_setup_bp.route('/api/start-scan', methods=['POST'])
+def start_scan():
+    """Scan starten"""
+    global scan_status
+    
+    if scan_status['scanning']:
+        return jsonify({'success': False, 'error': 'Scan läuft bereits'})
+    
+    data = request.json
+    subnet = data.get('subnet', '192.168.0')
+    ip_range = data.get('ip_range', [1, 254])
+    
+    # Start background scan
+    thread = threading.Thread(target=background_scan, args=(subnet, ip_range))
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({'success': True})
+
+@shelly_setup_bp.route('/api/scan-status')
+def get_scan_status():
+    """Scan-Status abrufen"""
+    return jsonify(scan_status)
+
+@shelly_setup_bp.route('/api/save-config', methods=['POST'])
+def save_config():
+    """Konfiguration speichern"""
+    data = request.json
+    devices = data.get('devices', [])
+    
+    manager = ShellyManager()
+    
+    for device_dict in devices:
+        device = ShellyDevice(**device_dict)
+        manager.add_device(device)
+    
+    manager.save_config()
+    
+    return jsonify({'success': True})
+
+# Erstellt von Hans Hahn - Alle Rechte vorbehalten

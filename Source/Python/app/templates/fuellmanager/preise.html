@@ -1,0 +1,160 @@
+<!-- Preiskonfiguration für Gase -->
+{% extends "base.html" %}
+
+{% block title %}Preiskonfiguration - Füllmanager{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2">
+                <i class="fas fa-coins"></i> Gas-Preiskonfiguration
+            </h1>
+        </div>
+    </div>
+
+    <!-- Aktuelle Preise -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-euro-sign"></i> Aktuelle Preise
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for gas, config in preise.items() %}
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">
+                                {% if gas == 'helium' %}
+                                    <i class="fas fa-atom text-warning"></i> Helium
+                                {% elif gas == 'sauerstoff' %}
+                                    <i class="fas fa-wind text-info"></i> Sauerstoff
+                                {% else %}
+                                    <i class="fas fa-air-freshener text-success"></i> Luft/Stickstoff
+                                {% endif %}
+                            </h5>
+                            <h3 class="text-primary">{{ "%.4f"|format(config.preis) }} €</h3>
+                            <p class="text-muted">pro Bar·Liter</p>
+                            <small class="text-muted">
+                                Gültig seit: {{ config.seit.strftime('%d.%m.%Y %H:%M') if config.seit else 'System-Standard' }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Preise ändern -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">
+                <i class="fas fa-edit"></i> Preise anpassen
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('fuellmanager.update_preise') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="preis_helium">Helium-Preis (€/Bar·L)</label>
+                            <input type="number" class="form-control form-control-lg" 
+                                   id="preis_helium" name="preis_helium" 
+                                   step="0.0001" min="0" 
+                                   value="{{ "%.4f"|format(preise['helium'].preis) }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="preis_sauerstoff">Sauerstoff-Preis (€/Bar·L)</label>
+                            <input type="number" class="form-control form-control-lg" 
+                                   id="preis_sauerstoff" name="preis_sauerstoff" 
+                                   step="0.0001" min="0" 
+                                   value="{{ "%.4f"|format(preise['sauerstoff'].preis) }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="preis_luft">Luft/Stickstoff-Preis (€/Bar·L)</label>
+                            <input type="number" class="form-control form-control-lg" 
+                                   id="preis_luft" name="preis_luft" 
+                                   step="0.0001" min="0" 
+                                   value="{{ "%.4f"|format(preise['luft'].preis) }}" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle"></i> 
+                    Die neuen Preise gelten ab sofort für alle neuen Füllvorgänge. 
+                    Bestehende Füllvorgänge behalten ihre ursprünglichen Preise.
+                </div>
+                
+                <button type="submit" class="btn btn-warning btn-lg">
+                    <i class="fas fa-save"></i> Preise aktualisieren
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preishistorie -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-history"></i> Preishistorie
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Gas</th>
+                            <th>Preis (€/Bar·L)</th>
+                            <th>Gültig bis</th>
+                            <th>Erstellt von</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for eintrag in historie %}
+                        <tr class="{{ 'table-active' if eintrag.ist_aktiv else 'text-muted' }}">
+                            <td>{{ eintrag.gueltig_ab.strftime('%d.%m.%Y %H:%M') }}</td>
+                            <td>
+                                {% if eintrag.gas_typ == 'helium' %}
+                                    <i class="fas fa-atom text-warning"></i> Helium
+                                {% elif eintrag.gas_typ == 'sauerstoff' %}
+                                    <i class="fas fa-wind text-info"></i> Sauerstoff
+                                {% else %}
+                                    <i class="fas fa-air-freshener text-success"></i> Luft
+                                {% endif %}
+                            </td>
+                            <td>{{ "%.4f"|format(eintrag.preis_pro_bar_liter) }}</td>
+                            <td>
+                                {% if eintrag.gueltig_bis %}
+                                    {{ eintrag.gueltig_bis.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                    <span class="badge badge-success">Aktiv</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ eintrag.erstellt_von or 'System' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('fuellmanager.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Zurück zum Füllmanager
+        </a>
+    </div>
+</div>
+{% endblock %}

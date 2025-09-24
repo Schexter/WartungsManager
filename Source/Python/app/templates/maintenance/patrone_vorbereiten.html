@@ -1,0 +1,649 @@
+{% extends "base.html" %}
+
+{% block title %}Patrone Vorbereiten - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-6 text-center mb-3">
+            <i class="fas fa-fill-drip me-3"></i>Patrone Vorbereiten
+        </h1>
+        <p class="text-center text-muted">Wer hat was wann gefüllt + Etikettendruck (62cm)</p>
+        
+        <!-- Navigation -->
+        <div class="text-center">
+            <a href="{{ url_for('maintenance.index') }}" class="btn btn-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>Zurück zur Wartung
+            </a>
+            <a href="{{ url_for('maintenance.patrone_einkauf') }}" class="btn btn-info me-2">
+                <i class="fas fa-shopping-cart me-1"></i>Einkauf
+            </a>
+            <a href="{{ url_for('maintenance.patrone_wechseln') }}" class="btn btn-primary">
+                <i class="fas fa-exchange-alt me-1"></i>Wechseln
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Neue Patrone vorbereiten -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-plus-circle me-2"></i>Neue Patrone vorbereiten
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="patroneVorbereitenForm">
+                    <div class="row">
+                        <!-- Person und Datum -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-user me-1"></i>Vorbereitet von *:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="vorbereitet_von" 
+                                       placeholder="Ihr Name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calendar me-1"></i>Vorbereitet am:
+                                </label>
+                                <input type="datetime-local" class="form-control form-control-lg" id="vorbereitet_am" 
+                                       value="" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Patronen-Details -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-tag me-1"></i>Patronen-Typ *:
+                                </label>
+                                <select class="form-select form-select-lg" id="patrone_typ" required>
+                                    <option value="">Typ auswählen</option>
+                                    <option value="Molekularsieb">Molekularsieb</option>
+                                    <option value="Kohle">Kohle</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-hashtag me-1"></i>Patrone Nummer:
+                                </label>
+                                <select class="form-select form-select-lg" id="patrone_nummer">
+                                    <option value="">Nicht spezifiziert</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                </select>
+                                <div class="form-text">Nur bei Molekularsieb relevant</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-barcode me-1"></i>Chargennummer *:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="charge_nummer" 
+                                       placeholder="z.B. MS-2025-001" required>
+                                <div class="form-text">Eindeutige Kennzeichnung</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Gewichte -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-weight me-1"></i>Gewicht vor Füllen (kg):
+                                </label>
+                                <input type="number" class="form-control form-control-lg" id="gewicht_vor_fuellen" 
+                                       step="0.1" min="0" placeholder="z.B. 2.5">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-weight-hanging me-1"></i>Gewicht nach Füllen (kg):
+                                </label>
+                                <input type="number" class="form-control form-control-lg" id="gewicht_nach_fuellen" 
+                                       step="0.1" min="0" placeholder="z.B. 4.2">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-info-circle me-1"></i>Material verwendet:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="material_verwendet" 
+                                       placeholder="z.B. Zeolith 4A">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notizen und Optionen -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-comment me-1"></i>Notizen (optional):
+                                </label>
+                                <textarea class="form-control" id="notizen" rows="3" 
+                                        placeholder="Zusätzliche Informationen zur Vorbereitung..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-print me-1"></i>Optionen:
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="etikett_drucken" checked>
+                                    <label class="form-check-label" for="etikett_drucken">
+                                        Etikett automatisch drucken (62cm)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save me-2"></i>Patrone vorbereiten und dokumentieren
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historie der Vorbereitungen -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Vorbereitungs-Historie
+                    <button class="btn btn-sm btn-outline-secondary float-end" onclick="loadVorbereitungsHistorie()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div id="historie-loading" class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Historie wird geladen...
+                </div>
+                
+                <!-- Statistiken -->
+                <div id="historie-statistiken" class="row mb-3" style="display: none;">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Gesamt vorbereitet</h6>
+                                <h4 class="text-primary" id="stat-gesamt">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Verwendet</h6>
+                                <h4 class="text-success" id="stat-verwendet">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Verfügbar</h6>
+                                <h4 class="text-warning" id="stat-verfuegbar">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Historie-Tabelle -->
+                <div id="historie-tabelle" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Datum/Zeit</th>
+                                    <th>Von</th>
+                                    <th>Typ</th>
+                                    <th>Nr.</th>
+                                    <th>Charge</th>
+                                    <th>Gewicht</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historie-tbody">
+                                <!-- Wird via JavaScript gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="historie-leer" class="text-center text-muted py-4" style="display: none;">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>Noch keine Patronen vorbereitet</h5>
+                    <p>Bereiten Sie die erste Patrone vor, um sie hier zu sehen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Etikett-Vorschau Modal -->
+<div class="modal fade" id="etikettVorschauModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h4 class="modal-title">
+                    <i class="fas fa-print me-2"></i>Etikett-Vorschau (62cm Endlos)
+                </h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Info:</strong> Etikett für 62cm breiten Endlos-Etikettendrucker
+                </div>
+                
+                <div class="border p-3 bg-light font-monospace" id="etikett-vorschau">
+                    <!-- Etikett-Text wird hier eingefügt -->
+                </div>
+                
+                <div class="mt-3">
+                    <button class="btn btn-success" id="etikett-drucken-btn">
+                        <i class="fas fa-print me-2"></i>Etikett drucken
+                    </button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// PATRONEN-VORBEREITUNG JAVASCRIPT
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializePatroneVorbereitung();
+    loadVorbereitungsHistorie();
+    
+    // Aktuelles Datum/Zeit setzen
+    setCurrentDateTime();
+});
+
+function initializePatroneVorbereitung() {
+    const form = document.getElementById('patroneVorbereitenForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        patroneVorbereiten();
+    });
+    
+    // Patronen-Typ Change Handler
+    document.getElementById('patrone_typ').addEventListener('change', function() {
+        const patroneNummer = document.getElementById('patrone_nummer');
+        if (this.value === 'Molekularsieb') {
+            patroneNummer.disabled = false;
+            patroneNummer.previousElementSibling.style.display = 'block';
+        } else {
+            patroneNummer.disabled = true;
+            patroneNummer.value = '';
+            patroneNummer.previousElementSibling.style.display = 'none';
+        }
+    });
+}
+
+function setCurrentDateTime() {
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    document.getElementById('vorbereitet_am').value = localDateTime.toISOString().slice(0, 16);
+}
+
+async function patroneVorbereiten() {
+    const formData = {
+        vorbereitet_von: document.getElementById('vorbereitet_von').value.trim(),
+        patrone_typ: document.getElementById('patrone_typ').value,
+        patrone_nummer: document.getElementById('patrone_nummer').value || null,
+        charge_nummer: document.getElementById('charge_nummer').value.trim(),
+        gewicht_vor_fuellen: parseFloat(document.getElementById('gewicht_vor_fuellen').value) || null,
+        gewicht_nach_fuellen: parseFloat(document.getElementById('gewicht_nach_fuellen').value) || null,
+        material_verwendet: document.getElementById('material_verwendet').value.trim() || null,
+        notizen: document.getElementById('notizen').value.trim() || null,
+        etikett_drucken: document.getElementById('etikett_drucken').checked
+    };
+    
+    // Validierung
+    if (!formData.vorbereitet_von) {
+        showErrorMessage('Bitte geben Sie Ihren Namen ein!');
+        return;
+    }
+    
+    if (!formData.patrone_typ) {
+        showErrorMessage('Bitte wählen Sie einen Patronen-Typ aus!');
+        return;
+    }
+    
+    if (!formData.charge_nummer) {
+        showErrorMessage('Bitte geben Sie eine Chargennummer ein!');
+        return;
+    }
+    
+    try {
+        showLoadingState('Patrone wird vorbereitet...');
+        
+        const response = await fetch('/api/maintenance/patrone-vorbereiten', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage(`Patrone erfolgreich vorbereitet!\\n\\nCharge: ${result.vorbereitung.charge_nummer}\\nEtikett gedruckt: ${result.etikett_gedruckt ? 'Ja' : 'Nein'}`);
+            
+            // Formular zurücksetzen
+            document.getElementById('patroneVorbereitenForm').reset();
+            setCurrentDateTime();
+            
+            // Historie neu laden
+            loadVorbereitungsHistorie();
+            
+            // Etikett-Vorschau anzeigen wenn gedruckt
+            if (result.etikett_gedruckt && result.vorbereitung) {
+                showEtikettVorschau(result.vorbereitung);
+            }
+            
+        } else {
+            showErrorMessage('Fehler beim Vorbereiten: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Vorbereiten:', error);
+        showErrorMessage('Netzwerkfehler beim Vorbereiten der Patrone');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+async function loadVorbereitungsHistorie() {
+    const loadingElement = document.getElementById('historie-loading');
+    const statistikenElement = document.getElementById('historie-statistiken');
+    const tabelleElement = document.getElementById('historie-tabelle');
+    const leerElement = document.getElementById('historie-leer');
+    
+    // Loading-State anzeigen
+    loadingElement.style.display = 'block';
+    statistikenElement.style.display = 'none';
+    tabelleElement.style.display = 'none';
+    leerElement.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/maintenance/patrone-vorbereitung-historie');
+        const result = await response.json();
+        
+        if (result.success) {
+            // Statistiken aktualisieren
+            if (result.statistiken) {
+                document.getElementById('stat-gesamt').textContent = result.statistiken.gesamt_vorbereitet;
+                document.getElementById('stat-verwendet').textContent = result.statistiken.verwendet;
+                document.getElementById('stat-verfuegbar').textContent = result.statistiken.verfuegbar;
+                statistikenElement.style.display = 'block';
+            }
+            
+            // Tabelle füllen
+            const tbody = document.getElementById('historie-tbody');
+            tbody.innerHTML = '';
+            
+            if (result.vorbereitungen && result.vorbereitungen.length > 0) {
+                result.vorbereitungen.forEach(vorbereitung => {
+                    const row = createHistorieRow(vorbereitung);
+                    tbody.appendChild(row);
+                });
+                tabelleElement.style.display = 'block';
+            } else {
+                leerElement.style.display = 'block';
+            }
+            
+        } else {
+            showErrorMessage('Fehler beim Laden der Historie: ' + result.error);
+            leerElement.style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Historie:', error);
+        showErrorMessage('Netzwerkfehler beim Laden der Historie');
+        leerElement.style.display = 'block';
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function createHistorieRow(vorbereitung) {
+    const row = document.createElement('tr');
+    
+    // Status-Badge
+    let statusBadge;
+    if (vorbereitung.ist_verwendet) {
+        statusBadge = '<span class=\"badge bg-success\">Verwendet</span>';
+    } else if (vorbereitung.ist_bereit) {
+        statusBadge = '<span class=\"badge bg-warning\">Bereit</span>';
+    } else {
+        statusBadge = '<span class=\"badge bg-secondary\">Inaktiv</span>';
+    }
+    
+    // Gewicht formatieren
+    const gewichtText = vorbereitung.gewicht_nach_fuellen 
+        ? `${vorbereitung.gewicht_nach_fuellen}kg` 
+        : '-';
+    
+    // Datum formatieren
+    const datum = new Date(vorbereitung.vorbereitet_am);
+    const datumText = datum.toLocaleDateString('de-DE') + ' ' + datum.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+    
+    row.innerHTML = `
+        <td>${datumText}</td>
+        <td>${vorbereitung.vorbereitet_von}</td>
+        <td>
+            <span class=\"badge ${vorbereitung.patrone_typ === 'Molekularsieb' ? 'bg-primary' : 'bg-warning'}\">${vorbereitung.patrone_typ}</span>
+        </td>
+        <td>${vorbereitung.patrone_nummer || '-'}</td>
+        <td><code>${vorbereitung.charge_nummer}</code></td>
+        <td>${gewichtText}</td>
+        <td>${statusBadge}</td>
+        <td>
+            <div class=\"btn-group btn-group-sm\">
+                ${!vorbereitung.etikett_gedruckt ? 
+                    `<button class=\"btn btn-outline-success\" onclick=\"etikettNachdrucken(${vorbereitung.id})\" title=\"Etikett drucken\">
+                        <i class=\"fas fa-print\"></i>
+                    </button>` : ''}
+                <button class=\"btn btn-outline-info\" onclick=\"showVorbereitungDetails(${vorbereitung.id})\" title=\"Details anzeigen\">
+                    <i class=\"fas fa-eye\"></i>
+                </button>
+            </div>
+        </td>
+    `;
+    
+    return row;
+}
+
+async function etikettNachdrucken(vorbereitungId) {
+    try {
+        showLoadingState('Etikett wird gedruckt...');
+        
+        const response = await fetch(`/api/maintenance/etikett-drucken/${vorbereitungId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Etikett wurde erfolgreich gedruckt!');
+            
+            // Etikett-Vorschau anzeigen
+            if (result.vorbereitung) {
+                showEtikettVorschau(result.vorbereitung);
+            }
+            
+            // Historie neu laden
+            loadVorbereitungsHistorie();
+        } else {
+            showErrorMessage('Fehler beim Drucken: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Etikett-Druck:', error);
+        showErrorMessage('Netzwerkfehler beim Drucken');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+function showVorbereitungDetails(vorbereitungId) {
+    alert(`Vorbereitung Details für ID: ${vorbereitungId}\\n\\nDetails-Modal wird implementiert...`);
+    // TODO: Details-Modal implementieren
+}
+
+function showEtikettVorschau(vorbereitung) {
+    const modal = new bootstrap.Modal(document.getElementById('etikettVorschauModal'));
+    const vorschauElement = document.getElementById('etikett-vorschau');
+    
+    // Etikett-Layout erstellen (simuliert)
+    const etikettText = `
+╔══════════════════════════════════════════════════════════════╗
+║                    PATRONE VORBEREITET                      ║
+╠══════════════════════════════════════════════════════════════╣
+║ TYP: ${vorbereitung.patrone_typ.padEnd(25)} NR: ${(vorbereitung.patrone_nummer || 'N/A').padEnd(15)} ║
+║ CHARGE: ${vorbereitung.charge_nummer.padEnd(49)} ║
+║                                                              ║
+║ VORBEREITET VON: ${vorbereitung.vorbereitet_von.padEnd(38)} ║
+║ DATUM/ZEIT: ${new Date(vorbereitung.vorbereitet_am).toLocaleString('de-DE').padEnd(44)} ║
+║                                                              ║
+║ GEWICHT: ${(vorbereitung.gewicht_nach_fuellen ? vorbereitung.gewicht_nach_fuellen + ' kg' : 'N/A').padEnd(52)} ║
+║ MATERIAL: ${(vorbereitung.material_verwendet || 'Standard').padEnd(50)} ║
+║                                                              ║
+║              ⚠️  NUR FÜR WARTUNG VERWENDEN  ⚠️              ║
+╚══════════════════════════════════════════════════════════════╝
+    `.trim();
+    
+    vorschauElement.textContent = etikettText;
+    
+    // Drucken-Button Event
+    document.getElementById('etikett-drucken-btn').onclick = function() {
+        alert('Etikett würde jetzt an den 62cm Endlos-Drucker gesendet...');
+        modal.hide();
+    };
+    
+    modal.show();
+}
+
+// ============================================================================
+// UTILITY FUNKTIONEN
+// ============================================================================
+
+function showLoadingState(message) {
+    console.log('Loading:', message);
+    // TODO: Loading-Overlay implementieren
+}
+
+function hideLoadingState() {
+    console.log('Loading beendet');
+    // TODO: Loading-Overlay ausblenden
+}
+
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 7000);
+}
+</script>
+
+<!-- Zusätzliche Styles -->
+<style>
+.font-monospace {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    line-height: 1.2;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.4rem;
+}
+
+/* Responsive Tabelle */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm > .btn {
+        padding: 0.125rem 0.25rem;
+    }
+}
+</style>
+{% endblock %}

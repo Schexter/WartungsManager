@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Serverfehler{% endblock %}
+
+{% block content %}
+<div class="container text-center">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <i class="fas fa-server fa-5x text-danger mb-4"></i>
+            <h1 class="display-4">500</h1>
+            <h2>Interner Serverfehler</h2>
+            <p class="lead">Es ist ein unerwarteter Fehler aufgetreten.</p>
+            
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary btn-touch">
+                <i class="fas fa-home me-2"></i>Zurück zum Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

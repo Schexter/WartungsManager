@@ -1,0 +1,517 @@
+"""
+Erweiterte Shelly-API mit Discovery und Widget-Management
+"""
+
+from flask import Blueprint, request, jsonify, current_app, render_template_string
+import json
+from pathlib import Path
+from typing import List, Dict, Any
+
+# Import der Shelly-Klassen
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from shelly_discovery import ShellyDevice, ShellyManager
+
+shelly_bp = Blueprint('shelly', __name__, url_prefix='/shelly')
+
+def get_manager() -> ShellyManager:
+    """Hole oder erstelle ShellyManager-Instanz"""
+    if not hasattr(current_app, 'shelly_manager'):
+        current_app.shelly_manager = ShellyManager()
+    return current_app.shelly_manager
+
+# ============================================================================
+# API ENDPOINTS
+# ============================================================================
+
+@shelly_bp.route('/api/devices', methods=['GET'])
+def get_all_devices():
+    """Alle konfigurierten Geräte abrufen"""
+    manager = get_manager()
+    devices = [d.to_dict() for d in manager.devices]
+    
+    return jsonify({
+        'success': True,
+        'devices': devices,
+        'kompressor': manager.get_kompressor_device().to_dict() if manager.get_kompressor_device() else None,
+        'widgets': [d.to_dict() for d in manager.get_widget_devices()]
+    })
+
+@shelly_bp.route('/api/device/<ip>/switch', methods=['POST'])
+def switch_device(ip):
+    """Gerät schalten"""
+    manager = get_manager()
+    
+    data = request.json or {}
+    state = data.get('state', True)
+    relay = data.get('relay', 0)
+    
+    result = manager.switch_device(ip, state, relay)
+    return jsonify(result)
+
+@shelly_bp.route('/api/device/<ip>/status', methods=['GET'])
+def get_device_status(ip):
+    """Gerätestatus abrufen"""
+    manager = get_manager()
+    status = manager.get_device_status(ip)
+    
+    if status:
+        # Parse status für einfache Anzeige
+        device = next((d for d in manager.devices if d.ip == ip), None)
+        
+        if device:
+            if device.gen == 2:
+                switch = status.get('switch:0', {})
+                simple_status = {
+                    'online': True,
+                    'relay_on': switch.get('output', False),
+                    'power': switch.get('apower', 0),
+                    'temperature': status.get('temperature:0', {}).get('tC'),
+                    'device': device.to_dict()
+                }
+            else:
+                relay = status.get('relays', [{}])[0]
+                meter = status.get('meters', [{}])[0] if 'meters' in status else {}
+                simple_status = {
+                    'online': True,
+                    'relay_on': relay.get('ison', False),
+                    'power': meter.get('power', 0),
+                    'temperature': status.get('temperature'),
+                    'device': device.to_dict()
+                }
+            
+            return jsonify({'success': True, 'status': simple_status})
+    
+    return jsonify({'success': False, 'error': 'Gerät nicht erreichbar'})
+
+@shelly_bp.route('/api/kompressor/switch', methods=['POST'])
+def switch_kompressor():
+    """Kompressor über zugewiesenes Shelly schalten"""
+    manager = get_manager()
+    device = manager.get_kompressor_device()
+    
+    if not device:
+        return jsonify({
+            'success': False,
+            'error': 'Kein Kompressor-Shelly konfiguriert! Führen Sie "python shelly_discovery.py" aus.'
+        })
+    
+    data = request.json or {}
+    state = data.get('state', True)
+    
+    result = manager.switch_device(device.ip, state)
+    
+    # Log in Datenbank (wenn gewünscht)
+    if result['success']:
+        # Hier könnte man in die Kompressor-Datenbank schreiben
+        pass
+    
+    return jsonify(result)
+
+@shelly_bp.route('/api/widgets/status', methods=['GET'])
+def get_widgets_status():
+    """Status aller Widget-Geräte"""
+    manager = get_manager()
+    widgets = manager.get_widget_devices()
+    
+    widget_status = []
+    for widget in widgets:
+        status = manager.get_device_status(widget.ip)
+        
+        if status:
+            if widget.gen == 2:
+                switch = status.get('switch:0', {})
+                widget_status.append({
+                    'ip': widget.ip,
+                    'name': widget.custom_name,
+                    'online': True,
+                    'relay_on': switch.get('output', False),
+                    'power': switch.get('apower', 0)
+                })
+            else:
+                relay = status.get('relays', [{}])[0]
+                meter = status.get('meters', [{}])[0] if 'meters' in status else {}
+                widget_status.append({
+                    'ip': widget.ip,
+                    'name': widget.custom_name,
+                    'online': True,
+                    'relay_on': relay.get('ison', False),
+                    'power': meter.get('power', 0)
+                })
+        else:
+            widget_status.append({
+                'ip': widget.ip,
+                'name': widget.custom_name,
+                'online': False
+            })
+    
+    return jsonify({'success': True, 'widgets': widget_status})
+
+# ============================================================================
+# DASHBOARD VIEWS
+# ============================================================================
+
+@shelly_bp.route('/dashboard')
+def dashboard():
+    """Shelly Dashboard-Ansicht"""
+    manager = get_manager()
+    
+    # Template für Dashboard
+    template = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shelly Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        .card.kompressor {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            grid-column: span 2;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .card-title {
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .online { background: #4caf50; color: white; }
+        .offline { background: #f44336; color: white; }
+        .power-display {
+            font-size: 2em;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: 300;
+        }
+        .power-unit {
+            font-size: 0.5em;
+            opacity: 0.8;
+        }
+        .switch-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .switch {
+            position: relative;
+            width: 80px;
+            height: 40px;
+            cursor: pointer;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 40px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 32px;
+            width: 32px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4caf50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(40px);
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid #c62828;
+        }
+        @media (max-width: 768px) {
+            .card.kompressor {
+                grid-column: span 1;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 Shelly Control Center</h1>
+        
+        <div id="error-container"></div>
+        
+        <!-- Kompressor Card -->
+        {% if kompressor %}
+        <div class="grid">
+            <div class="card kompressor" id="kompressor-card">
+                <div class="card-header">
+                    <div class="card-title">⚙️ {{ kompressor.custom_name }}</div>
+                    <span class="status-badge loading">Lade...</span>
+                </div>
+                <div class="power-display">
+                    <span id="kompressor-power">--</span>
+                    <span class="power-unit">W</span>
+                </div>
+                <div class="info-row">
+                    <span>Modell:</span>
+                    <span>{{ kompressor.model }}</span>
+                </div>
+                <div class="info-row">
+                    <span>IP:</span>
+                    <span>{{ kompressor.ip }}</span>
+                </div>
+                <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" id="kompressor-switch" data-ip="{{ kompressor.ip }}">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="error-message">
+            ⚠️ Kein Kompressor-Shelly konfiguriert!<br>
+            Führen Sie <code>python shelly_discovery.py</code> aus.
+        </div>
+        {% endif %}
+        
+        <!-- Widget Cards -->
+        {% if widgets %}
+        <h2 style="color: white; margin: 30px 0 20px;">📱 Weitere Geräte</h2>
+        <div class="grid">
+            {% for widget in widgets %}
+            <div class="card widget-card" data-ip="{{ widget.ip }}">
+                <div class="card-header">
+                    <div class="card-title">{{ widget.custom_name }}</div>
+                    <span class="status-badge loading">Lade...</span>
+                </div>
+                <div class="power-display">
+                    <span class="widget-power">--</span>
+                    <span class="power-unit">W</span>
+                </div>
+                <div class="info-row">
+                    <span>Modell:</span>
+                    <span>{{ widget.model }}</span>
+                </div>
+                <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" class="widget-switch" data-ip="{{ widget.ip }}">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        // Auto-Update alle 5 Sekunden
+        let updateInterval;
+        
+        async function updateKompressor() {
+            const card = document.getElementById('kompressor-card');
+            if (!card) return;
+            
+            const ip = document.getElementById('kompressor-switch').dataset.ip;
+            const badge = card.querySelector('.status-badge');
+            const power = document.getElementById('kompressor-power');
+            const toggle = document.getElementById('kompressor-switch');
+            
+            try {
+                const response = await fetch(`/shelly/api/device/${ip}/status`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const status = data.status;
+                    badge.textContent = status.online ? 'Online' : 'Offline';
+                    badge.className = 'status-badge ' + (status.online ? 'online' : 'offline');
+                    power.textContent = status.power || 0;
+                    toggle.checked = status.relay_on;
+                } else {
+                    badge.textContent = 'Offline';
+                    badge.className = 'status-badge offline';
+                    power.textContent = '--';
+                }
+            } catch (e) {
+                console.error('Update failed:', e);
+                badge.textContent = 'Fehler';
+                badge.className = 'status-badge offline';
+            }
+        }
+        
+        async function updateWidgets() {
+            const widgets = document.querySelectorAll('.widget-card');
+            
+            for (const widget of widgets) {
+                const ip = widget.dataset.ip;
+                const badge = widget.querySelector('.status-badge');
+                const power = widget.querySelector('.widget-power');
+                const toggle = widget.querySelector('.widget-switch');
+                
+                try {
+                    const response = await fetch(`/shelly/api/device/${ip}/status`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const status = data.status;
+                        badge.textContent = status.online ? 'Online' : 'Offline';
+                        badge.className = 'status-badge ' + (status.online ? 'online' : 'offline');
+                        power.textContent = status.power || 0;
+                        toggle.checked = status.relay_on;
+                    } else {
+                        badge.textContent = 'Offline';
+                        badge.className = 'status-badge offline';
+                        power.textContent = '--';
+                    }
+                } catch (e) {
+                    console.error('Widget update failed:', e);
+                    badge.textContent = 'Fehler';
+                    badge.className = 'status-badge offline';
+                }
+            }
+        }
+        
+        async function switchDevice(ip, state) {
+            try {
+                const response = await fetch(`/shelly/api/device/${ip}/switch`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({state: state})
+                });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    console.error('Switch failed:', data.error);
+                    // Revert switch
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                console.error('Switch error:', e);
+                return false;
+            }
+        }
+        
+        // Event Listeners
+        document.getElementById('kompressor-switch')?.addEventListener('change', async (e) => {
+            const success = await switchDevice(e.target.dataset.ip, e.target.checked);
+            if (!success) {
+                e.target.checked = !e.target.checked;
+            }
+            setTimeout(updateKompressor, 500);
+        });
+        
+        document.querySelectorAll('.widget-switch').forEach(toggle => {
+            toggle.addEventListener('change', async (e) => {
+                const success = await switchDevice(e.target.dataset.ip, e.target.checked);
+                if (!success) {
+                    e.target.checked = !e.target.checked;
+                }
+                setTimeout(updateWidgets, 500);
+            });
+        });
+        
+        // Initial load und Auto-Update
+        updateKompressor();
+        updateWidgets();
+        
+        updateInterval = setInterval(() => {
+            updateKompressor();
+            updateWidgets();
+        }, 5000);
+        
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (updateInterval) clearInterval(updateInterval);
+        });
+    </script>
+</body>
+</html>
+    '''
+    
+    kompressor = manager.get_kompressor_device()
+    widgets = manager.get_widget_devices()
+    
+    return render_template_string(
+        template,
+        kompressor=kompressor,
+        widgets=widgets
+    )
+
+# Erstellt von Hans Hahn - Alle Rechte vorbehalten

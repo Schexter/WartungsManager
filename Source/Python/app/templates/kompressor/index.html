@@ -1,0 +1,378 @@
+{% extends "admin_layout.html" %}
+
+{% block title %}Kompressor - WartungsManager{% endblock %}
+
+{% block head_extra %}
+<style>
+    .kompressor-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        margin-bottom: 30px;
+    }
+
+    .control-panel {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    .status-indicator {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 10px;
+        animation: pulse 2s infinite;
+    }
+
+    .status-indicator.online {
+        background-color: #4caf50;
+    }
+
+    .status-indicator.offline {
+        background-color: #f44336;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .power-button {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        border: none;
+        font-size: 60px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .power-button.btn-on {
+        background: linear-gradient(135deg, #4caf50, #8bc34a);
+        color: white;
+    }
+
+    .power-button.btn-off {
+        background: linear-gradient(135deg, #f44336, #e91e63);
+        color: white;
+    }
+
+    .power-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+    }
+
+    .power-button:active {
+        transform: scale(0.95);
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+    }
+
+    .stats-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .stats-label {
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    .shelly-info {
+        background: #f5f5f5;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    .shelly-connected {
+        color: #4caf50;
+        font-weight: bold;
+    }
+
+    .shelly-disconnected {
+        color: #f44336;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Kompressor Header -->
+    <div class="kompressor-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-3">
+                    <i class="fas fa-compress-alt me-3"></i>
+                    Kompressor-Steuerung
+                </h1>
+                <p class="lead mb-0">Automatische Steuerung über Shelly Smart Plug</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="status-indicator" id="status-indicator"></span>
+                <span id="status-text" style="font-size: 1.2rem;">Verbindung prüfen...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Steuerung -->
+    <div class="control-panel">
+        <div class="row">
+            <!-- Power Control -->
+            <div class="col-md-4 text-center">
+                <h3 class="mb-4">Kompressor-Kontrolle</h3>
+                <button class="power-button btn-on" id="power-button" onclick="toggleKompressor()" disabled>
+                    <i class="fas fa-power-off"></i>
+                </button>
+                <p class="mt-3" id="power-status">Status wird geladen...</p>
+            </div>
+
+            <!-- Live Stats -->
+            <div class="col-md-4">
+                <h3 class="mb-4">Live-Daten</h3>
+                <div class="stats-card">
+                    <div class="stats-label">Leistung</div>
+                    <div class="stats-value" id="power-value">0 W</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-label">Spannung</div>
+                    <div class="stats-value" id="voltage-value">0 V</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-label">Temperatur</div>
+                    <div class="stats-value" id="temp-value">0 °C</div>
+                </div>
+            </div>
+
+            <!-- Shelly Info -->
+            <div class="col-md-4">
+                <h3 class="mb-4">Shelly-Informationen</h3>
+                <div class="shelly-info">
+                    <p><strong>Modell:</strong> <span id="shelly-model">-</span></p>
+                    <p><strong>IP-Adresse:</strong> <span id="shelly-ip">-</span></p>
+                    <p><strong>Verbindung:</strong> <span id="shelly-connection">-</span></p>
+                    <p><strong>Firmware:</strong> <span id="shelly-firmware">-</span></p>
+                </div>
+
+                <button class="btn btn-primary w-100 mt-3" onclick="configureSh elly()">
+                    <i class="fas fa-cog me-2"></i>Shelly konfigurieren
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log -->
+    <div class="control-panel">
+        <h3><i class="fas fa-history me-2"></i>Aktivitäts-Log</h3>
+        <div id="activity-log" style="max-height: 300px; overflow-y: auto;">
+            <p class="text-muted">Warte auf Aktivitäten...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Konfigurationsmodal -->
+<div class="modal fade" id="shellyConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Shelly-Konfiguration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Shelly IP-Adresse</label>
+                    <select class="form-select" id="shelly-select">
+                        <option value="">Bitte wählen...</option>
+                        <option value="192.168.0.32">192.168.0.32 - Shelly Plus 1</option>
+                        <option value="192.168.0.78">192.168.0.78 - Shelly Plus Plug S</option>
+                        <option value="192.168.0.110">192.168.0.110 - Shelly Plus Plug S</option>
+                        <option value="192.168.0.152">192.168.0.152 - Shelly Plus Plug S</option>
+                        <option value="192.168.0.163">192.168.0.163 - Shelly Plus Plug S</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Bezeichnung</label>
+                    <input type="text" class="form-control" id="shelly-name" value="Kompressor" placeholder="z.B. Kompressor">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveShellyConfig()">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentShellyIP = localStorage.getItem('kompressor_shelly_ip') || '192.168.0.152';
+let isKompressorOn = false;
+let updateInterval = null;
+
+// Initialisierung
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Kompressor-Steuerung initialisiert');
+    document.getElementById('shelly-select').value = currentShellyIP;
+    updateStatus();
+
+    // Auto-Update alle 5 Sekunden
+    updateInterval = setInterval(updateStatus, 5000);
+});
+
+function updateStatus() {
+    fetch('/api/kompressor/status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: currentShellyIP})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.status) {
+            // Status-Indikator
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            indicator.className = 'status-indicator online';
+            statusText.textContent = 'Verbunden';
+
+            // Power Button
+            const powerBtn = document.getElementById('power-button');
+            const powerStatus = document.getElementById('power-status');
+            powerBtn.disabled = false;
+
+            isKompressorOn = data.status.output;
+
+            if (isKompressorOn) {
+                powerBtn.className = 'power-button btn-off';
+                powerStatus.textContent = 'Kompressor läuft';
+                powerStatus.className = 'text-success';
+            } else {
+                powerBtn.className = 'power-button btn-on';
+                powerStatus.textContent = 'Kompressor aus';
+                powerStatus.className = 'text-danger';
+            }
+
+            // Live-Daten
+            document.getElementById('power-value').textContent = (data.status.apower || 0).toFixed(1) + ' W';
+            document.getElementById('voltage-value').textContent = (data.status.voltage || 0).toFixed(1) + ' V';
+            document.getElementById('temp-value').textContent = (data.status.temperature?.tC || 0).toFixed(1) + ' °C';
+
+            // Shelly-Info
+            document.getElementById('shelly-model').textContent = data.status.model || 'Shelly Plus Plug S';
+            document.getElementById('shelly-ip').textContent = currentShellyIP;
+            document.getElementById('shelly-connection').innerHTML = '<span class="shelly-connected">Verbunden</span>';
+            document.getElementById('shelly-firmware').textContent = data.status.fw_id || '-';
+
+            addToLog('Status aktualisiert');
+        } else {
+            setOfflineStatus();
+        }
+    })
+    .catch(error => {
+        console.error('Status-Fehler:', error);
+        setOfflineStatus();
+    });
+}
+
+function setOfflineStatus() {
+    document.getElementById('status-indicator').className = 'status-indicator offline';
+    document.getElementById('status-text').textContent = 'Nicht verbunden';
+    document.getElementById('power-button').disabled = true;
+    document.getElementById('power-status').textContent = 'Shelly nicht erreichbar';
+    document.getElementById('shelly-connection').innerHTML = '<span class="shelly-disconnected">Getrennt</span>';
+    addToLog('Verbindung verloren', 'error');
+}
+
+function toggleKompressor() {
+    const action = isKompressorOn ? 'off' : 'on';
+    const powerBtn = document.getElementById('power-button');
+    powerBtn.disabled = true;
+
+    addToLog(`Schalte Kompressor ${action === 'on' ? 'ein' : 'aus'}...`);
+
+    fetch('/api/kompressor/control', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            ip: currentShellyIP,
+            action: action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addToLog(`Kompressor wurde ${action === 'on' ? 'eingeschaltet' : 'ausgeschaltet'}`, 'success');
+            setTimeout(updateStatus, 1000); // Nach 1 Sekunde Status updaten
+        } else {
+            addToLog('Fehler beim Schalten: ' + (data.error || 'Unbekannt'), 'error');
+        }
+        powerBtn.disabled = false;
+    })
+    .catch(error => {
+        addToLog('Schaltfehler: ' + error, 'error');
+        powerBtn.disabled = false;
+    });
+}
+
+function configureSh elly() {
+    const modal = new bootstrap.Modal(document.getElementById('shellyConfigModal'));
+    modal.show();
+}
+
+function saveShellyConfig() {
+    const selectedIP = document.getElementById('shelly-select').value;
+    const shellyName = document.getElementById('shelly-name').value;
+
+    if (!selectedIP) {
+        alert('Bitte wählen Sie eine Shelly aus');
+        return;
+    }
+
+    currentShellyIP = selectedIP;
+    localStorage.setItem('kompressor_shelly_ip', selectedIP);
+    localStorage.setItem('kompressor_shelly_name', shellyName);
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('shellyConfigModal'));
+    modal.hide();
+
+    addToLog(`Shelly ${selectedIP} als Kompressor konfiguriert`, 'success');
+    updateStatus();
+}
+
+function addToLog(message, type = 'info') {
+    const log = document.getElementById('activity-log');
+    const time = new Date().toLocaleTimeString();
+    const color = type === 'error' ? 'danger' : type === 'success' ? 'success' : 'secondary';
+
+    const entry = document.createElement('div');
+    entry.className = `alert alert-${color} py-2 mb-2`;
+    entry.innerHTML = `<small><strong>[${time}]</strong> ${message}</small>`;
+
+    // Entferne Platzhalter
+    if (log.querySelector('.text-muted')) {
+        log.innerHTML = '';
+    }
+
+    log.insertBefore(entry, log.firstChild);
+
+    // Behalte nur die letzten 20 Einträge
+    while (log.children.length > 20) {
+        log.removeChild(log.lastChild);
+    }
+}
+</script>
+{% endblock %}

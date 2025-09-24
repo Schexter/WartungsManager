@@ -1,0 +1,906 @@
+{% extends "base.html" %}
+
+{% block title %}Patrone Einkauf - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-6 text-center mb-3">
+            <i class="fas fa-shopping-cart me-3"></i>Gekaufte Patrone einbuchen
+        </h1>
+        <p class="text-center text-muted">Was, Wann, Lieferant + Kleber-Druck</p>
+        
+        <!-- Navigation -->
+        <div class="text-center">
+            <a href="{{ url_for('maintenance.index') }}" class="btn btn-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>Zurück zur Wartung
+            </a>
+            <a href="{{ url_for('maintenance.patrone_vorbereiten') }}" class="btn btn-success me-2">
+                <i class="fas fa-fill-drip me-1"></i>Vorbereiten
+            </a>
+            <a href="{{ url_for('maintenance.patrone_wechseln') }}" class="btn btn-primary">
+                <i class="fas fa-exchange-alt me-1"></i>Wechseln
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Lagerbestand Übersicht -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-warehouse me-2"></i>Aktueller Lagerbestand
+                    <button class="btn btn-sm btn-outline-light float-end" onclick="loadLagerbestand()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div id="lagerbestand-loading" class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Lagerbestand wird geladen...
+                </div>
+                
+                <div id="lagerbestand-inhalt" style="display: none;">
+                    <!-- Wird via JavaScript gefüllt -->
+                </div>
+                
+                <div id="lagerbestand-leer" class="text-center text-muted py-4" style="display: none;">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>Kein Lagerbestand vorhanden</h5>
+                    <p>Buchen Sie den ersten Einkauf ein, um den Lagerbestand zu starten.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Neuen Einkauf einbuchen -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-plus-circle me-2"></i>Neuen Einkauf einbuchen
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="einkaufEinbuchenForm">
+                    <div class="row">
+                        <!-- Grunddaten -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-user me-1"></i>Eingekauft von *:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="eingekauft_von" 
+                                       placeholder="Ihr Name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-truck me-1"></i>Lieferant *:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="lieferant" 
+                                       placeholder="z.B. ChemieSupply GmbH" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Produkt-Details -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-box me-1"></i>Produktname *:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="produkt_name" 
+                                       placeholder="z.B. Zeolith 4A Molekularsieb" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-tag me-1"></i>Produkt-Typ *:
+                                </label>
+                                <select class="form-select form-select-lg" id="produkt_typ" required>
+                                    <option value="">Typ auswählen</option>
+                                    <option value="Molekularsieb">Molekularsieb</option>
+                                    <option value="Kohle">Kohle</option>
+                                    <option value="Sonstiges">Sonstiges</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-barcode me-1"></i>Lieferanten-Charge:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="charge_nummer_lieferant" 
+                                       placeholder="Charge vom Lieferanten">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Mengen und Preise -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-weight me-1"></i>Menge *:
+                                </label>
+                                <input type="number" class="form-control form-control-lg" id="menge" 
+                                       step="0.1" min="0" placeholder="z.B. 25" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-ruler me-1"></i>Einheit *:
+                                </label>
+                                <select class="form-select form-select-lg" id="einheit" required>
+                                    <option value="">Einheit wählen</option>
+                                    <option value="kg">kg</option>
+                                    <option value="Stück">Stück</option>
+                                    <option value="Liter">Liter</option>
+                                    <option value="Sack">Sack</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-euro-sign me-1"></i>Einzelpreis (EUR):
+                                </label>
+                                <input type="number" class="form-control form-control-lg" id="einzelpreis" 
+                                       step="0.01" min="0" placeholder="z.B. 12.50">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calculator me-1"></i>Gesamtpreis (EUR):
+                                </label>
+                                <input type="number" class="form-control form-control-lg" id="gesamtpreis" 
+                                       step="0.01" min="0" placeholder="z.B. 312.50">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Termine -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-calendar me-1"></i>Einkaufsdatum:
+                                </label>
+                                <input type="date" class="form-control form-control-lg" id="einkauf_datum">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-truck-loading me-1"></i>Lieferdatum:
+                                </label>
+                                <input type="date" class="form-control form-control-lg" id="lieferdatum">
+                                <div class="form-text">Leer lassen wenn noch nicht geliefert</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-hourglass-end me-1"></i>Haltbarkeitsdatum:
+                                </label>
+                                <input type="date" class="form-control form-control-lg" id="haltbarkeitsdatum">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Lagerung und Optionen -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-map-marker-alt me-1"></i>Lagerort:
+                                </label>
+                                <input type="text" class="form-control form-control-lg" id="lagerort" 
+                                       placeholder="z.B. Lager Regal 3">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-print me-1"></i>Optionen:
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="kleber_drucken" checked>
+                                    <label class="form-check-label" for="kleber_drucken">
+                                        Lager-Kleber automatisch drucken
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notizen -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-comment me-1"></i>Notizen (optional):
+                        </label>
+                        <textarea class="form-control" id="notizen" rows="3" 
+                                placeholder="Zusätzliche Informationen zum Einkauf..."></textarea>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save me-2"></i>Einkauf einbuchen und dokumentieren
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Einkaufs-Historie -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Einkaufs-Historie
+                    <button class="btn btn-sm btn-outline-secondary float-end" onclick="loadEinkaufsHistorie()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div id="einkauf-loading" class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Historie wird geladen...
+                </div>
+                
+                <!-- Statistiken -->
+                <div id="einkauf-statistiken" class="row mb-3" style="display: none;">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Gesamt Einkäufe</h6>
+                                <h4 class="text-primary" id="stat-einkaufe">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Gesamt-Wert</h6>
+                                <h4 class="text-success" id="stat-wert">- EUR</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Ausstehende Lieferungen</h6>
+                                <h4 class="text-warning" id="stat-ausstehend">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Historie-Tabelle -->
+                <div id="einkauf-tabelle" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Von</th>
+                                    <th>Produkt</th>
+                                    <th>Lieferant</th>
+                                    <th>Menge</th>
+                                    <th>Preis</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="einkauf-tbody">
+                                <!-- Wird via JavaScript gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="einkauf-leer" class="text-center text-muted py-4" style="display: none;">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>Noch keine Einkäufe dokumentiert</h5>
+                    <p>Buchen Sie den ersten Einkauf ein, um ihn hier zu sehen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kleber-Vorschau Modal -->
+<div class="modal fade" id="kleberVorschauModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h4 class="modal-title">
+                    <i class="fas fa-print me-2"></i>Lager-Kleber Vorschau
+                </h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Info:</strong> Kleber für Lagerung mit Lieferant und Datum
+                </div>
+                
+                <div class="border p-3 bg-light font-monospace" id="kleber-vorschau">
+                    <!-- Kleber-Text wird hier eingefügt -->
+                </div>
+                
+                <div class="mt-3">
+                    <button class="btn btn-info" id="kleber-drucken-btn">
+                        <i class="fas fa-print me-2"></i>Kleber drucken
+                    </button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// PATRONEN-EINKAUF JAVASCRIPT
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEinkauf();
+    loadLagerbestand();
+    loadEinkaufsHistorie();
+    
+    // Aktuelles Datum setzen
+    setCurrentDate();
+});
+
+function initializeEinkauf() {
+    const form = document.getElementById('einkaufEinbuchenForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        einkaufEinbuchen();
+    });
+    
+    // Auto-Berechnung Gesamtpreis
+    const mengeInput = document.getElementById('menge');
+    const einzelpreisInput = document.getElementById('einzelpreis');
+    const gesamtpreisInput = document.getElementById('gesamtpreis');
+    
+    function calculateGesamtpreis() {
+        const menge = parseFloat(mengeInput.value) || 0;
+        const einzelpreis = parseFloat(einzelpreisInput.value) || 0;
+        if (menge > 0 && einzelpreis > 0) {
+            gesamtpreisInput.value = (menge * einzelpreis).toFixed(2);
+        }
+    }
+    
+    mengeInput.addEventListener('input', calculateGesamtpreis);
+    einzelpreisInput.addEventListener('input', calculateGesamtpreis);
+}
+
+function setCurrentDate() {
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0];
+    document.getElementById('einkauf_datum').value = dateString;
+}
+
+async function einkaufEinbuchen() {
+    const formData = {
+        eingekauft_von: document.getElementById('eingekauft_von').value.trim(),
+        lieferant: document.getElementById('lieferant').value.trim(),
+        produkt_name: document.getElementById('produkt_name').value.trim(),
+        produkt_typ: document.getElementById('produkt_typ').value,
+        menge: parseFloat(document.getElementById('menge').value),
+        einheit: document.getElementById('einheit').value,
+        einzelpreis: parseFloat(document.getElementById('einzelpreis').value) || null,
+        gesamtpreis: parseFloat(document.getElementById('gesamtpreis').value) || null,
+        einkauf_datum: document.getElementById('einkauf_datum').value || null,
+        lieferdatum: document.getElementById('lieferdatum').value || null,
+        haltbarkeitsdatum: document.getElementById('haltbarkeitsdatum').value || null,
+        charge_nummer_lieferant: document.getElementById('charge_nummer_lieferant').value.trim() || null,
+        lagerort: document.getElementById('lagerort').value.trim() || null,
+        notizen: document.getElementById('notizen').value.trim() || null,
+        kleber_drucken: document.getElementById('kleber_drucken').checked
+    };
+    
+    // Validierung
+    if (!formData.eingekauft_von) {
+        showErrorMessage('Bitte geben Sie Ihren Namen ein!');
+        return;
+    }
+    
+    if (!formData.lieferant) {
+        showErrorMessage('Bitte geben Sie den Lieferanten ein!');
+        return;
+    }
+    
+    if (!formData.produkt_name) {
+        showErrorMessage('Bitte geben Sie den Produktnamen ein!');
+        return;
+    }
+    
+    if (!formData.produkt_typ) {
+        showErrorMessage('Bitte wählen Sie einen Produkt-Typ aus!');
+        return;
+    }
+    
+    if (!formData.menge || formData.menge <= 0) {
+        showErrorMessage('Bitte geben Sie eine gültige Menge ein!');
+        return;
+    }
+    
+    if (!formData.einheit) {
+        showErrorMessage('Bitte wählen Sie eine Einheit aus!');
+        return;
+    }
+    
+    try {
+        showLoadingState('Einkauf wird eingebucht...');
+        
+        const response = await fetch('/api/maintenance/patrone-einkauf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage(`Einkauf erfolgreich eingebucht!\\n\\nProdukt: ${result.einkauf.produkt_name}\\nLieferant: ${result.einkauf.lieferant}\\nKleber gedruckt: ${result.kleber_gedruckt ? 'Ja' : 'Nein'}`);
+            
+            // Formular zurücksetzen
+            document.getElementById('einkaufEinbuchenForm').reset();
+            setCurrentDate();
+            
+            // Daten neu laden
+            loadLagerbestand();
+            loadEinkaufsHistorie();
+            
+            // Kleber-Vorschau anzeigen wenn gedruckt
+            if (result.kleber_gedruckt && result.einkauf) {
+                showKleberVorschau(result.einkauf);
+            }
+            
+        } else {
+            showErrorMessage('Fehler beim Einbuchen: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Einbuchen:', error);
+        showErrorMessage('Netzwerkfehler beim Einbuchen des Einkaufs');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+async function loadLagerbestand() {
+    const loadingElement = document.getElementById('lagerbestand-loading');
+    const inhaltElement = document.getElementById('lagerbestand-inhalt');
+    const leerElement = document.getElementById('lagerbestand-leer');
+    
+    // Loading-State anzeigen
+    loadingElement.style.display = 'block';
+    inhaltElement.style.display = 'none';
+    leerElement.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/maintenance/lagerbestand');
+        const result = await response.json();
+        
+        if (result.success) {
+            if (Object.keys(result.lagerbestand_nach_typ).length > 0) {
+                createLagerbestandView(result, inhaltElement);
+                inhaltElement.style.display = 'block';
+            } else {
+                leerElement.style.display = 'block';
+            }
+        } else {
+            showErrorMessage('Fehler beim Laden des Lagerbestands: ' + result.error);
+            leerElement.style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden des Lagerbestands:', error);
+        showErrorMessage('Netzwerkfehler beim Laden des Lagerbestands');
+        leerElement.style.display = 'block';
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function createLagerbestandView(data, container) {
+    let html = '';
+    
+    // Warnungen für niedrige Bestände
+    if (data.warnung_anzahl > 0) {
+        html += `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>${data.warnung_anzahl}</strong> Artikel mit niedrigem Bestand (&lt; 20%)!
+            </div>
+        `;
+    }
+    
+    // Lagerbestand nach Typ
+    html += '<div class="row">';
+    
+    for (const [typ, artikel] of Object.entries(data.lagerbestand_nach_typ)) {
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">${typ}</h6>
+                    </div>
+                    <div class="card-body">
+        `;
+        
+        artikel.forEach(item => {
+            const einkauf = item.einkauf;
+            const prozent = item.prozent_verbleibend;
+            const verbleibend = item.verbleibende_menge;
+            
+            let statusClass = 'success';
+            if (prozent < 20) statusClass = 'danger';
+            else if (prozent < 50) statusClass = 'warning';
+            
+            html += `
+                <div class="mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                        <strong>${einkauf.produkt_name}</strong>
+                        <span class="badge bg-${statusClass}">${prozent.toFixed(0)}%</span>
+                    </div>
+                    <small class="text-muted">
+                        Lieferant: ${einkauf.lieferant}<br>
+                        Verbleibend: ${verbleibend.toFixed(1)} ${einkauf.einheit}
+                    </small>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+async function loadEinkaufsHistorie() {
+    const loadingElement = document.getElementById('einkauf-loading');
+    const statistikenElement = document.getElementById('einkauf-statistiken');
+    const tabelleElement = document.getElementById('einkauf-tabelle');
+    const leerElement = document.getElementById('einkauf-leer');
+    
+    // Loading-State anzeigen
+    loadingElement.style.display = 'block';
+    statistikenElement.style.display = 'none';
+    tabelleElement.style.display = 'none';
+    leerElement.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/maintenance/einkaufs-historie');
+        const result = await response.json();
+        
+        if (result.success) {
+            // Statistiken aktualisieren
+            if (result.statistiken) {
+                document.getElementById('stat-einkaufe').textContent = result.statistiken.gesamt_einkäufe;
+                document.getElementById('stat-wert').textContent = result.statistiken.gesamt_wert_eur + ' EUR';
+                document.getElementById('stat-ausstehend').textContent = result.statistiken.ausstehende_lieferungen;
+                statistikenElement.style.display = 'block';
+            }
+            
+            // Tabelle füllen
+            const tbody = document.getElementById('einkauf-tbody');
+            tbody.innerHTML = '';
+            
+            if (result.einkäufe && result.einkäufe.length > 0) {
+                result.einkäufe.forEach(einkauf => {
+                    const row = createEinkaufRow(einkauf);
+                    tbody.appendChild(row);
+                });
+                tabelleElement.style.display = 'block';
+            } else {
+                leerElement.style.display = 'block';
+            }
+            
+        } else {
+            showErrorMessage('Fehler beim Laden der Historie: ' + result.error);
+            leerElement.style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Historie:', error);
+        showErrorMessage('Netzwerkfehler beim Laden der Historie');
+        leerElement.style.display = 'block';
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function createEinkaufRow(einkauf) {
+    const row = document.createElement('tr');
+    
+    // Status-Badge
+    let statusBadge;
+    if (einkauf.ist_geliefert) {
+        statusBadge = '<span class=\"badge bg-success\">Geliefert</span>';
+    } else {
+        statusBadge = '<span class=\"badge bg-warning\">Ausstehend</span>';
+    }
+    
+    // Preis formatieren
+    const preisText = einkauf.gesamtpreis 
+        ? `${einkauf.gesamtpreis.toFixed(2)} EUR` 
+        : '-';
+    
+    // Datum formatieren
+    const datum = new Date(einkauf.einkauf_datum);
+    const datumText = datum.toLocaleDateString('de-DE');
+    
+    row.innerHTML = `
+        <td>${datumText}</td>
+        <td>${einkauf.eingekauft_von}</td>
+        <td>
+            <div>${einkauf.produkt_name}</div>
+            <small class=\"text-muted\">${einkauf.produkt_typ}</small>
+        </td>
+        <td>${einkauf.lieferant}</td>
+        <td>${einkauf.menge} ${einkauf.einheit}</td>
+        <td>${preisText}</td>
+        <td>${statusBadge}</td>
+        <td>
+            <div class=\"btn-group btn-group-sm\">
+                ${!einkauf.kleber_gedruckt ? 
+                    `<button class=\"btn btn-outline-info\" onclick=\"kleberNachdrucken(${einkauf.id})\" title=\"Kleber drucken\">
+                        <i class=\"fas fa-print\"></i>
+                    </button>` : ''}
+                ${!einkauf.ist_geliefert ? 
+                    `<button class=\"btn btn-outline-success\" onclick=\"lieferungErhalten(${einkauf.id})\" title=\"Als geliefert markieren\">
+                        <i class=\"fas fa-truck\"></i>
+                    </button>` : ''}
+                <button class=\"btn btn-outline-secondary\" onclick=\"showEinkaufDetails(${einkauf.id})\" title=\"Details anzeigen\">
+                    <i class=\"fas fa-eye\"></i>
+                </button>
+            </div>
+        </td>
+    `;
+    
+    return row;
+}
+
+async function kleberNachdrucken(einkaufId) {
+    try {
+        showLoadingState('Kleber wird gedruckt...');
+        
+        const response = await fetch(`/api/maintenance/kleber-drucken/${einkaufId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Kleber wurde erfolgreich gedruckt!');
+            
+            // Kleber-Vorschau anzeigen
+            if (result.einkauf) {
+                showKleberVorschau(result.einkauf);
+            }
+            
+            // Historie neu laden
+            loadEinkaufsHistorie();
+        } else {
+            showErrorMessage('Fehler beim Drucken: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Kleber-Druck:', error);
+        showErrorMessage('Netzwerkfehler beim Drucken');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+async function lieferungErhalten(einkaufId) {
+    if (!confirm('Lieferung als erhalten markieren?')) {
+        return;
+    }
+    
+    try {
+        showLoadingState('Lieferung wird aktualisiert...');
+        
+        const response = await fetch(`/api/maintenance/lieferung-erhalten/${einkaufId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                lieferdatum: new Date().toISOString().split('T')[0]
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Lieferung als erhalten markiert!');
+            
+            // Daten neu laden
+            loadLagerbestand();
+            loadEinkaufsHistorie();
+        } else {
+            showErrorMessage('Fehler beim Update: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Lieferung-Update:', error);
+        showErrorMessage('Netzwerkfehler beim Update');
+    } finally {
+        hideLoadingState();
+    }
+}
+
+function showEinkaufDetails(einkaufId) {
+    alert(`Einkauf Details für ID: ${einkaufId}\\n\\nDetails-Modal wird implementiert...`);
+    // TODO: Details-Modal implementieren
+}
+
+function showKleberVorschau(einkauf) {
+    const modal = new bootstrap.Modal(document.getElementById('kleberVorschauModal'));
+    const vorschauElement = document.getElementById('kleber-vorschau');
+    
+    // Kleber-Layout erstellen
+    const kleberText = `
+┌──────────────────────────────────────────────────────────────┐
+│                      PATRONEN-MATERIAL                      │
+├──────────────────────────────────────────────────────────────┤
+│ PRODUKT: ${einkauf.produkt_name.padEnd(48)} │
+│ TYP: ${einkauf.produkt_typ.padEnd(52)} │
+│ LIEFERANT: ${einkauf.lieferant.padEnd(46)} │
+│                                                              │
+│ EINGEKAUFT: ${new Date(einkauf.einkauf_datum).toLocaleDateString('de-DE').padEnd(43)} │
+│ GELIEFERT: ${(einkauf.lieferdatum ? new Date(einkauf.lieferdatum).toLocaleDateString('de-DE') : 'Ausstehend').padEnd(44)} │
+│ MENGE: ${(einkauf.menge + ' ' + einkauf.einheit).padEnd(50)} │
+│                                                              │
+│ CHARGE: ${(einkauf.charge_nummer_lieferant || 'N/A').padEnd(49)} │
+│ HALTBAR BIS: ${(einkauf.haltbarkeitsdatum ? new Date(einkauf.haltbarkeitsdatum).toLocaleDateString('de-DE') : 'Unbegrenzt').padEnd(42)} │
+│ LAGERORT: ${(einkauf.lagerort || 'Nicht angegeben').padEnd(45)} │
+│                                                              │
+│                    🏭 MAGIC FACTORY 🏭                     │
+└──────────────────────────────────────────────────────────────┘
+    `.trim();
+    
+    vorschauElement.textContent = kleberText;
+    
+    // Drucken-Button Event
+    document.getElementById('kleber-drucken-btn').onclick = function() {
+        alert('Kleber würde jetzt an den Drucker gesendet...');
+        modal.hide();
+    };
+    
+    modal.show();
+}
+
+// ============================================================================
+// UTILITY FUNKTIONEN
+// ============================================================================
+
+function showLoadingState(message) {
+    console.log('Loading:', message);
+    // TODO: Loading-Overlay implementieren
+}
+
+function hideLoadingState() {
+    console.log('Loading beendet');
+    // TODO: Loading-Overlay ausblenden
+}
+
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 7000);
+}
+</script>
+
+<!-- Zusätzliche Styles -->
+<style>
+.font-monospace {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    line-height: 1.2;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.4rem;
+}
+
+/* Badge-Styles */
+.badge {
+    font-size: 0.75rem;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm > .btn {
+        padding: 0.125rem 0.25rem;
+    }
+    
+    .card-body {
+        padding: 1rem 0.5rem;
+    }
+}
+</style>
+{% endblock %}

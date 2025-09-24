@@ -1,0 +1,578 @@
+{% extends "base.html" %}
+
+{% block title %}Flaschen Füllen - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Flaschen-Füllen Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="display-5">
+                <i class="fas fa-fill-drip me-3"></i>Flaschen Füllen
+            </h1>
+            <button class="btn btn-secondary btn-lg" onclick="location.href='{{ url_for('main.index') }}'">
+                <i class="fas fa-arrow-left me-2"></i>Zurück zum Dashboard
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- STATUS ANZEIGE -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Füllvorgang-Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="fuellvorgang-status-display">
+                    <div class="text-center">
+                        <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Kein aktiver Füllvorgang</h4>
+                        <p class="text-muted">Starten Sie einen neuen Füllvorgang</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Kompressor-Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="kompressor-check-display" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Prüfe Kompressor...</span>
+                    </div>
+                    <p class="mt-2">Kompressor-Status wird geprüft...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- HAUPTSTEUERUNG -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-play-circle me-2"></i>Flaschen-Füllung Steuerung</h5>
+            </div>
+            <div class="card-body">
+                <!-- Kein aktiver Füllvorgang -->
+                <div id="no-fuellvorgang-controls">
+                    <div class="touch-grid">
+                        <button class="btn btn-success btn-touch" onclick="startNewFuellvorgang()">
+                            <i class="fas fa-plus-circle fa-2x d-block mb-2"></i>
+                            <strong>FÜLLVORGANG STARTEN</strong>
+                            <small class="d-block">Mehrere Flaschen füllen</small>
+                        </button>
+                        
+                        <button class="btn btn-info btn-touch" onclick="showLeereFlaschenDialog()">
+                            <i class="fas fa-bottle-water fa-2x d-block mb-2"></i>
+                            <strong>LEERE FLASCHEN ANNEHMEN</strong>
+                            <small class="d-block">Ohne Kompressor-Betrieb</small>
+                        </button>
+                        
+                        <button class="btn btn-warning btn-touch" onclick="showFuellvorgangHistory()">
+                            <i class="fas fa-history fa-2x d-block mb-2"></i>
+                            <strong>FÜLLVORGANG-VERLAUF</strong>
+                            <small class="d-block">Vergangene Vorgänge anzeigen</small>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Aktiver Füllvorgang Steuerung -->
+                <div id="active-fuellvorgang-controls" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="touch-grid">
+                                <button class="btn btn-primary btn-touch" onclick="addFlascheDialog()">
+                                    <i class="fas fa-plus fa-2x d-block mb-2"></i>
+                                    <strong>FLASCHE HINZUFÜGEN</strong>
+                                    <small class="d-block">Barcode scannen oder eingeben</small>
+                                </button>
+                                
+                                <button class="btn btn-warning btn-touch" onclick="startFuellung()">
+                                    <i class="fas fa-play fa-2x d-block mb-2"></i>
+                                    <strong>FÜLLUNG STARTEN</strong>
+                                    <small class="d-block">Ausgewählte Flaschen füllen</small>
+                                </button>
+                                
+                                <button class="btn btn-danger btn-touch" onclick="endFuellvorgang()">
+                                    <i class="fas fa-stop fa-2x d-block mb-2"></i>
+                                    <strong>FÜLLVORGANG BEENDEN</strong>
+                                    <small class="d-block">Vorgang abschließen</small>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <h6>Flaschen im Vorgang</h6>
+                                    <h2 class="text-primary" id="fuellvorgang-flaschen-count">0</h2>
+                                    <small class="text-muted">Flaschen hinzugefügt</small>
+                                    <hr>
+                                    <h6>Zur Füllung ausgewählt</h6>
+                                    <h3 class="text-success" id="fuellvorgang-selected-count">0</h3>
+                                    <small class="text-muted">Flaschen angehakt</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FLASCHEN LISTE MIT CHECKBOXEN -->
+<div class="row mb-4" id="flaschen-section" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Flaschen in diesem Füllvorgang</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-success me-2" onclick="selectAllFlaschen()">
+                        <i class="fas fa-check-square me-1"></i>Alle auswählen
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning me-2" onclick="deselectAllFlaschen()">
+                        <i class="fas fa-square me-1"></i>Alle abwählen
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshFlaschenListe()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="flaschen-liste-container">
+                    <!-- Flaschen werden dynamisch geladen -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LEERE FLASCHEN ANNEHMEN MODAL -->
+<div class="modal fade" id="leereFlaschenModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h4 class="modal-title">
+                    <i class="fas fa-bottle-water me-2"></i>Leere Flaschen annehmen
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Hinweis:</strong> Diese Funktion dient zum Annehmen leerer Flaschen ohne Kompressor-Betrieb. Die Flaschen werden registriert und können später gefüllt werden.
+                </div>
+                
+                <form id="leereFlaschenForm">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Flaschen-Barcode:</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                            <input type="text" class="form-control" id="leereFlaschenBarcode" 
+                                   placeholder="Barcode der leeren Flasche scannen" 
+                                   autocomplete="off" autofocus>
+                            <button class="btn btn-outline-secondary" type="button" onclick="scanLeereFlaschenBarcode()">
+                                <i class="fas fa-camera"></i> Scannen
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Kunde für leere Flasche -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Kunde (Flaschen-Besitzer):</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="leereFlaschenKunde" 
+                                           placeholder="Kunde suchen..." onkeyup="searchKundenForLeere(this.value)">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="newKundeForLeereDialog()">
+                                        <i class="fas fa-plus"></i> Neuen Kunden anlegen
+                                    </button>
+                                </div>
+                                <div id="leere-kunden-dropdown" class="dropdown-menu w-100" style="display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status der angenommenen Flasche -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Status:</label>
+                        <select class="form-select" id="leereFlaschenStatus">
+                            <option value="leer">Leer - zur Füllung vormerken</option>
+                            <option value="leer_wartung">Leer - Wartung erforderlich</option>
+                            <option value="defekt">Defekt - nicht füllbar</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Notizen -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Notizen (optional):</label>
+                        <textarea class="form-control" id="leereFlaschenNotizen" rows="3" 
+                                  placeholder="Besondere Hinweise zur Flasche..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-lg" onclick="closeLeereFlaschenModal()">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-success btn-lg" onclick="acceptLeereFlaschen()">
+                    <i class="fas fa-check me-2"></i>Leere Flasche annehmen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Weitere Modals... (gekürzt für Platz) -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// FLASCHEN-FÜLLEN JAVASCRIPT (Neue Version)
+// ============================================================================
+
+let currentFuellvorgang = null;
+let kompressorStatus = null;
+let flaschenListe = [];
+let selectedFlaschen = new Set(); // Für Checkbox-Auswahl
+let kundenCache = [];
+
+// Beim Laden der Seite Status prüfen
+document.addEventListener('DOMContentLoaded', function() {
+    checkKompressorStatus();
+    checkActiveFuellvorgang();
+    
+    // Enter-Key für leere Flaschen Barcode
+    document.getElementById('leereFlaschenBarcode').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            validateLeereFlaschen();
+        }
+    });
+});
+
+// ============================================================================
+// LEERE FLASCHEN FUNKTIONEN (NEU)
+// ============================================================================
+
+function showLeereFlaschenDialog() {
+    document.getElementById('leereFlaschenForm').reset();
+    const modal = new bootstrap.Modal(document.getElementById('leereFlaschenModal'));
+    modal.show();
+    
+    setTimeout(() => {
+        document.getElementById('leereFlaschenBarcode').focus();
+    }, 500);
+}
+
+function validateLeereFlaschen() {
+    const barcode = document.getElementById('leereFlaschenBarcode').value.trim();
+    
+    if (!barcode) {
+        showErrorMessage('Bitte Barcode der leeren Flasche eingeben!');
+        return;
+    }
+    
+    showLoadingState('Flasche wird gesucht...');
+    
+    fetch(`/api/kompressor/flaschen/barcode/${encodeURIComponent(barcode)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.found) {
+                showInfoMessage('Flasche bereits im System. Status wird aktualisiert.');
+                if (data.flasche.besitzer) {
+                    document.getElementById('leereFlaschenKunde').value = data.flasche.besitzer.name;
+                }
+            } else {
+                showInfoMessage('Neue Flasche wird zur Annahme vorbereitet.');
+            }
+        })
+        .catch(error => {
+            showErrorMessage('Fehler bei der Flasche-Suche: ' + error.message);
+        })
+        .finally(() => {
+            hideLoadingState();
+        });
+}
+
+function acceptLeereFlaschen() {
+    const barcode = document.getElementById('leereFlaschenBarcode').value.trim();
+    const kunde = document.getElementById('leereFlaschenKunde').value.trim();
+    const status = document.getElementById('leereFlaschenStatus').value;
+    const notizen = document.getElementById('leereFlaschenNotizen').value.trim();
+    
+    if (!barcode || !kunde) {
+        showErrorMessage('Barcode und Kunde sind erforderlich!');
+        return;
+    }
+    
+    showLoadingState('Leere Flasche wird angenommen...');
+    
+    fetch('/api/kompressor/flaschen/leere-annehmen', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            barcode: barcode,
+            kunde_name: kunde,
+            status: status,
+            notizen: notizen,
+            ohne_kompressor: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage('Leere Flasche erfolgreich angenommen!');
+            closeLeereFlaschenModal();
+        } else {
+            showErrorMessage('Fehler beim Annehmen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler: ' + error.message);
+    })
+    .finally(() => {
+        hideLoadingState();
+    });
+}
+
+function closeLeereFlaschenModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('leereFlaschenModal'));
+    if (modal) modal.hide();
+}
+
+// ============================================================================
+// CHECKBOX FUNKTIONEN (NEU)
+// ============================================================================
+
+function updateSelectedCount() {
+    document.getElementById('fuellvorgang-selected-count').textContent = selectedFlaschen.size;
+}
+
+function selectAllFlaschen() {
+    const checkboxes = document.querySelectorAll('.flasche-checkbox:not(:disabled)');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+        selectedFlaschen.add(parseInt(checkbox.value));
+    });
+    updateSelectedCount();
+}
+
+function deselectAllFlaschen() {
+    const checkboxes = document.querySelectorAll('.flasche-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    selectedFlaschen.clear();
+    updateSelectedCount();
+}
+
+function handleFlaschenCheckbox(checkbox) {
+    const flascheId = parseInt(checkbox.value);
+    
+    if (checkbox.checked) {
+        selectedFlaschen.add(flascheId);
+    } else {
+        selectedFlaschen.delete(flascheId);
+    }
+    
+    updateSelectedCount();
+}
+
+// ============================================================================
+// BESTEHENDE FUNKTIONEN (angepasst)
+// ============================================================================
+
+function checkKompressorStatus() {
+    fetch('/api/kompressor/status')
+        .then(response => response.json())
+        .then(data => {
+            kompressorStatus = data;
+            updateKompressorDisplay(data);
+        })
+        .catch(error => {
+            console.error('Kompressor-Status Fehler:', error);
+            updateKompressorDisplay(null);
+        });
+}
+
+function updateKompressorDisplay(status) {
+    const display = document.getElementById('kompressor-check-display');
+    
+    if (!status) {
+        display.innerHTML = `
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h5 class="text-danger">Kompressor-Status unbekannt</h5>
+            <p class="text-muted">API nicht erreichbar</p>
+        `;
+        return;
+    }
+    
+    if (status.ist_an) {
+        display.innerHTML = `
+            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+            <h5 class="text-success">Kompressor läuft</h5>
+            <p class="text-muted">Füller: ${status.aktiver_kompressor.fueller}</p>
+            <small class="text-success">✓ Bereit für Füllung</small>
+        `;
+    } else {
+        display.innerHTML = `
+            <i class="fas fa-power-off fa-3x text-warning mb-3"></i>
+            <h5 class="text-warning">Kompressor steht</h5>
+            <p class="text-muted">Kompressor muss gestartet werden</p>
+            <button class="btn btn-primary btn-sm" onclick="goToDashboard()">
+                <i class="fas fa-external-link-alt me-1"></i>Kompressor starten
+            </button>
+        `;
+    }
+}
+
+function checkActiveFuellvorgang() {
+    fetch('/api/kompressor/bulk/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.aktiver_bulk_vorgang) {
+                currentFuellvorgang = data.aktiver_bulk_vorgang;
+                showActiveFuellvorgangUI();
+                loadFlaschenListe();
+            } else {
+                currentFuellvorgang = null;
+                showNoFuellvorgangUI();
+            }
+        })
+        .catch(error => {
+            console.error('Füllvorgang-Status Fehler:', error);
+            showNoFuellvorgangUI();
+        });
+}
+
+function showNoFuellvorgangUI() {
+    document.getElementById('no-fuellvorgang-controls').style.display = 'block';
+    document.getElementById('active-fuellvorgang-controls').style.display = 'none';
+    document.getElementById('flaschen-section').style.display = 'none';
+    
+    document.getElementById('fuellvorgang-status-display').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">Kein aktiver Füllvorgang</h4>
+            <p class="text-muted">Starten Sie einen neuen Füllvorgang</p>
+        </div>
+    `;
+}
+
+function showActiveFuellvorgangUI() {
+    document.getElementById('no-fuellvorgang-controls').style.display = 'none';
+    document.getElementById('active-fuellvorgang-controls').style.display = 'block';
+    document.getElementById('flaschen-section').style.display = 'block';
+    
+    if (currentFuellvorgang) {
+        document.getElementById('fuellvorgang-status-display').innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-fill-drip fa-3x text-primary mb-3"></i>
+                <h4 class="text-primary">Füllvorgang aktiv</h4>
+                <p class="text-muted">Operator: ${currentFuellvorgang.operator}</p>
+                <small class="text-muted">Gestartet: ${formatDateTime(currentFuellvorgang.start_zeit)}</small>
+            </div>
+        `;
+        
+        document.getElementById('fuellvorgang-flaschen-count').textContent = currentFuellvorgang.flaschen_count || 0;
+        updateSelectedCount();
+    }
+}
+
+// ============================================================================
+// HELPER FUNKTIONEN
+// ============================================================================
+
+function formatDateTime(dateString) {
+    return new Date(dateString).toLocaleString('de-DE');
+}
+
+function goToDashboard() {
+    window.location.href = '{{ url_for("main.index") }}';
+}
+
+function showLoadingState(message) {
+    console.log('Loading:', message);
+}
+
+function hideLoadingState() {
+    console.log('Loading beendet');
+}
+
+function showSuccessMessage(message) {
+    alert('✅ ' + message);
+}
+
+function showErrorMessage(message) {
+    alert('❌ ' + message);
+}
+
+function showInfoMessage(message) {
+    alert('ℹ️ ' + message);
+}
+
+// ============================================================================
+// PLACEHOLDER FUNKTIONEN (TODO)
+// ============================================================================
+
+function startNewFuellvorgang() {
+    showInfoMessage('Füllvorgang starten - wird implementiert...');
+}
+
+function startFuellung() {
+    if (selectedFlaschen.size === 0) {
+        showErrorMessage('Bitte wählen Sie mindestens eine Flasche zur Füllung aus!');
+        return;
+    }
+    showInfoMessage(`${selectedFlaschen.size} Flaschen zur Füllung - wird implementiert...`);
+}
+
+function addFlascheDialog() {
+    showInfoMessage('Flasche hinzufügen - wird implementiert...');
+}
+
+function endFuellvorgang() {
+    showInfoMessage('Füllvorgang beenden - wird implementiert...');
+}
+
+function refreshFlaschenListe() {
+    showInfoMessage('Liste aktualisieren - wird implementiert...');
+}
+
+function loadFlaschenListe() {
+    // Placeholder für Demo
+    const container = document.getElementById('flaschen-liste-container');
+    container.innerHTML = '<div class="text-center text-muted"><i class="fas fa-info-circle fa-2x mb-3"></i><p>Noch keine Flaschen hinzugefügt</p></div>';
+}
+
+function scanLeereFlaschenBarcode() {
+    showInfoMessage('Barcode-Scanner wird implementiert...');
+}
+
+function searchKundenForLeere() {
+    // TODO: Implementieren
+}
+
+function newKundeForLeereDialog() {
+    showInfoMessage('Neuen Kunden anlegen - wird implementiert...');
+}
+
+function showFuellvorgangHistory() {
+    showInfoMessage('Füllvorgang-Verlauf - wird implementiert...');
+}
+
+</script>
+{% endblock %}

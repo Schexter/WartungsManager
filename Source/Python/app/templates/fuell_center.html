@@ -1,0 +1,729 @@
+{% extends "base.html" %}
+
+{% block title %}Füll-Center - WartungsManager{% endblock %}
+
+{% block content %}
+<style>
+/* Füll-Center spezifische Styles */
+.status-card {
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.status-card h3 {
+    font-size: 2.5rem;
+    margin: 0;
+    font-weight: bold;
+}
+
+.status-card small {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.nav-tabs .nav-link {
+    padding: 20px;
+    font-weight: bold;
+    color: #495057;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    min-height: 100px;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: #fff;
+    border-bottom-color: #fff;
+}
+
+.nav-tabs .nav-link i {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.tab-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.2rem;
+}
+
+.workflow-card {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: all 0.3s;
+}
+
+.workflow-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.quick-action-btn {
+    min-height: 80px;
+    font-size: 1.1rem;
+    margin: 5px;
+}
+
+.flasche-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.flasche-item.express {
+    border-left: 5px solid #dc3545;
+}
+
+.kompressor-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.kompressor-status.on {
+    color: #28a745;
+}
+
+.kompressor-status.off {
+    color: #dc3545;
+}
+
+/* Mobile Optimierungen */
+@media (max-width: 768px) {
+    .nav-tabs .nav-link {
+        padding: 15px 10px;
+        min-height: 80px;
+    }
+    
+    .status-card {
+        padding: 15px 10px;
+    }
+    
+    .status-card h3 {
+        font-size: 2rem;
+    }
+}
+</style>
+
+<!-- Füll-Center Header -->
+<div class="row mb-3">
+    <div class="col-12">
+        <h1 class="display-4 text-center">
+            <i class="fas fa-fill-drip me-3"></i>Füll-Center
+        </h1>
+    </div>
+</div>
+
+<!-- Status-Leiste -->
+<div class="row mb-4">
+    <div class="col-6 col-md-3">
+        <div class="status-card">
+            <h3 id="stat-wartend">0</h3>
+            <small>Wartend</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="status-card">
+            <h3 id="stat-in-fuellung">0</h3>
+            <small>In Füllung</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="status-card">
+            <h3 id="stat-fertig">0</h3>
+            <small>Fertig</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="status-card">
+            <div class="kompressor-status off" id="kompressor-status">
+                <i class="fas fa-power-off me-2"></i>
+                <span>AUS</span>
+            </div>
+            <small>Kompressor</small>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs nav-fill mb-4" id="fuellCenterTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active position-relative" id="annahme-tab" data-bs-toggle="tab" href="#annahme" role="tab">
+            <i class="fas fa-inbox"></i>
+            <br>ANNAHME
+            <span class="badge bg-warning tab-badge" id="badge-annahme">0</span>
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link position-relative" id="fuellung-tab" data-bs-toggle="tab" href="#fuellung" role="tab">
+            <i class="fas fa-fill-drip"></i>
+            <br>FÜLLUNG
+            <span class="badge bg-primary tab-badge" id="badge-fuellung">0</span>
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link position-relative" id="abholung-tab" data-bs-toggle="tab" href="#abholung" role="tab">
+            <i class="fas fa-check-circle"></i>
+            <br>ABHOLUNG
+            <span class="badge bg-success tab-badge" id="badge-abholung">0</span>
+        </a>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="fuellCenterTabContent">
+    
+    <!-- ANNAHME Tab -->
+    <div class="tab-pane fade show active" id="annahme" role="tabpanel">
+        <div class="workflow-card">
+            <h3><i class="fas fa-user-plus me-2"></i>Schnell-Annahme</h3>
+            
+            <!-- Kunden-Suche -->
+            <div class="row mt-3">
+                <div class="col-md-8">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="kunde-suche" 
+                               placeholder="Kunde suchen (Name, Telefon, Nummer)..." 
+                               autocomplete="off"
+                               onkeyup="sucheKunden(this.value)">
+                    </div>
+                    <!-- Suchergebnisse -->
+                    <div id="kunde-suchergebnisse" class="list-group position-absolute w-100" style="z-index: 1000; display: none;">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-success btn-lg w-100" onclick="neuerKunde()">
+                        <i class="fas fa-user-plus me-2"></i>Neuer Kunde
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Favoriten -->
+            <div class="mt-3">
+                <h5>Häufige Kunden:</h5>
+                <div class="row" id="favoriten-kunden">
+                    <!-- Wird dynamisch geladen -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Aktuelle Annahmen -->
+        <div class="workflow-card">
+            <h4><i class="fas fa-clipboard-list me-2"></i>Heutige Annahmen</h4>
+            <div id="heutige-annahmen">
+                <!-- Wird dynamisch geladen -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- FÜLLUNG Tab -->
+    <div class="tab-pane fade" id="fuellung" role="tabpanel">
+        <!-- Kompressor-Kontrolle -->
+        <div class="workflow-card bg-light">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4><i class="fas fa-cogs me-2"></i>Kompressor-Steuerung</h4>
+                </div>
+                <div class="col-md-6 text-end">
+                    <button class="btn btn-success btn-lg" onclick="kompressorToggle()">
+                        <i class="fas fa-power-off me-2"></i>EINSCHALTEN
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Füll-Modi -->
+        <div class="row mt-3">
+            <div class="col-md-4">
+                <button class="btn btn-outline-primary quick-action-btn w-100" onclick="startEinzelfuellung()">
+                    <i class="fas fa-tint fa-2x d-block mb-2"></i>
+                    <strong>Einzelfüllung</strong>
+                    <small class="d-block">Mit Timer</small>
+                </button>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-outline-success quick-action-btn w-100" onclick="startBulkfuellung()">
+                    <i class="fas fa-layer-group fa-2x d-block mb-2"></i>
+                    <strong>Bulk-Füllung</strong>
+                    <small class="d-block">Mehrere gleichzeitig</small>
+                </button>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-outline-info quick-action-btn w-100" onclick="oeffneFuellmanager()">
+                    <i class="fas fa-calculator fa-2x d-block mb-2"></i>
+                    <strong>Füllmanager</strong>
+                    <small class="d-block">Mit Preiskalkulation & Unterschrift</small>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Warteliste -->
+        <div class="workflow-card mt-3">
+            <h4><i class="fas fa-list me-2"></i>Warteliste</h4>
+            <div id="warteliste-fuellung">
+                <!-- Wird dynamisch geladen -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- ABHOLUNG Tab -->
+    <div class="tab-pane fade" id="abholung" role="tabpanel">
+        <!-- Suche -->
+        <div class="workflow-card">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" placeholder="Kunde oder Flaschennummer suchen...">
+                <button class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>Suchen
+                </button>
+            </div>
+        </div>
+        
+        <!-- Fertige Flaschen -->
+        <div class="workflow-card">
+            <h4><i class="fas fa-check-circle me-2"></i>Abholbereite Flaschen</h4>
+            <div id="fertige-flaschen">
+                <!-- Wird dynamisch geladen -->
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <button class="btn btn-success btn-lg w-100 quick-action-btn">
+                    <i class="fas fa-receipt fa-2x d-block mb-2"></i>
+                    Quittung drucken
+                </button>
+            </div>
+            <div class="col-md-6">
+                <button class="btn btn-primary btn-lg w-100 quick-action-btn">
+                    <i class="fas fa-history fa-2x d-block mb-2"></i>
+                    Abholhistorie
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// FÜLL-CENTER JAVASCRIPT
+// ============================================================================
+
+let aktuellerTab = 'annahme';
+let kompressorStatus = false;
+
+// Initialisierung
+document.addEventListener('DOMContentLoaded', function() {
+    // Gespeicherten Tab wiederherstellen
+    const savedTab = localStorage.getItem('fuellCenterTab');
+    if (savedTab) {
+        document.querySelector(`#${savedTab}-tab`).click();
+    }
+    
+    // Tab-Wechsel speichern
+    document.querySelectorAll('a[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (e) {
+            const tabId = e.target.id.replace('-tab', '');
+            localStorage.setItem('fuellCenterTab', tabId);
+            aktuellerTab = tabId;
+            ladeTabDaten(tabId);
+        });
+    });
+    
+    // Initiale Daten laden
+    ladeStatistiken();
+    ladeTabDaten('annahme');
+    
+    // Auto-Refresh
+    setInterval(() => {
+        ladeStatistiken();
+        aktualisiereAktuellenTab();
+    }, 30000);
+    
+    // Uhrzeit-basierter Tab-Vorschlag
+    schlageTagesTab();
+});
+
+// ============================================================================
+// STATISTIKEN
+// ============================================================================
+
+async function ladeStatistiken() {
+    try {
+        const response = await fetch('/api/fuell-center/statistiken');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('stat-wartend').textContent = data.statistiken.wartend;
+            document.getElementById('stat-in-fuellung').textContent = data.statistiken.in_fuellung;
+            document.getElementById('stat-fertig').textContent = data.statistiken.fertig;
+            
+            // Tab-Badges
+            document.getElementById('badge-annahme').textContent = data.statistiken.wartend;
+            document.getElementById('badge-fuellung').textContent = data.statistiken.in_fuellung;
+            document.getElementById('badge-abholung').textContent = data.statistiken.fertig;
+            
+            // Kompressor-Status
+            kompressorStatus = data.statistiken.kompressor_an;
+            aktualisiereKompressorAnzeige();
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Statistiken:', error);
+    }
+}
+
+// ============================================================================
+// TAB-VERWALTUNG
+// ============================================================================
+
+async function ladeTabDaten(tab) {
+    switch(tab) {
+        case 'annahme':
+            ladeFavoritenKunden();
+            ladeHeutigeAnnahmen();
+            break;
+        case 'fuellung':
+            ladeWarteliste();
+            break;
+        case 'abholung':
+            ladeFertigeFlaschen();
+            break;
+    }
+}
+
+function aktualisiereAktuellenTab() {
+    ladeTabDaten(aktuellerTab);
+}
+
+function schlageTagesTab() {
+    const stunde = new Date().getHours();
+    
+    if (stunde < 10) {
+        // Morgens: Annahme
+        showToast('info', 'Guten Morgen! Annahme-Tab ist bereit.');
+    } else if (stunde < 15) {
+        // Mittags: Füllung
+        if (aktuellerTab === 'annahme') {
+            showToast('info', 'Zeit für Füllungen! Wechseln Sie zum Füll-Tab.');
+        }
+    } else {
+        // Nachmittags: Abholung
+        if (aktuellerTab !== 'abholung') {
+            showToast('info', 'Abholzeit! Prüfen Sie fertige Flaschen.');
+        }
+    }
+}
+
+// ============================================================================
+// ANNAHME-FUNKTIONEN
+// ============================================================================
+
+async function ladeFavoritenKunden() {
+    const container = document.getElementById('favoriten-kunden');
+    
+    try {
+        const response = await fetch('/api/fuell-center/kunden/favoriten');
+        const data = await response.json();
+        
+        if (data.success) {
+            let html = '';
+            
+            data.favoriten.forEach(kunde => {
+                html += `
+                    <div class="col-md-4 mb-2">
+                        <button class="btn btn-outline-primary w-100" onclick="schnellAnnahme(${kunde.id})">
+                            <i class="fas fa-user me-2"></i>${kunde.name}
+                            <small class="d-block">${kunde.mitgliedsnummer}</small>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<div class="col-12 text-muted text-center">Keine Favoriten</div>';
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Favoriten:', error);
+        container.innerHTML = '<div class="col-12 text-danger text-center">Fehler beim Laden</div>';
+    }
+}
+
+async function ladeHeutigeAnnahmen() {
+    const container = document.getElementById('heutige-annahmen');
+    
+    try {
+        const response = await fetch('/api/fuell-center/annahmen/heute');
+        const data = await response.json();
+        
+        if (data.success) {
+            let html = '';
+            
+            data.annahmen.forEach(annahme => {
+                const expressClass = annahme.hat_express ? 'express' : '';
+                const expressBadge = annahme.hat_express ? '<span class="badge bg-danger">Express</span>' : '<span class="badge bg-warning">Wartend</span>';
+                
+                html += `
+                    <div class="flasche-item ${expressClass}">
+                        <div>
+                            <strong>${annahme.kunde_name}</strong> - ${annahme.flaschen.length} Flasche(n)
+                            <small class="text-muted d-block">um ${annahme.zeit}</small>
+                        </div>
+                        ${expressBadge}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<div class="text-muted text-center">Noch keine Annahmen heute</div>';
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Annahmen:', error);
+        container.innerHTML = '<div class="text-danger text-center">Fehler beim Laden</div>';
+    }
+}
+
+function schnellAnnahme(kundeId) {
+    // Zur Flaschen-Annahme weiterleiten mit vorausgewähltem Kunden
+    window.location.href = `/flaschen-annehmen?kunde=${kundeId}`;
+}
+
+function neuerKunde() {
+    // Zum Kundenmanager weiterleiten
+    window.location.href = '/kundenmanager?neu=true';
+}
+
+// Kunden-Suche mit Debounce
+let suchTimeout;
+function sucheKunden(begriff) {
+    clearTimeout(suchTimeout);
+    const resultsDiv = document.getElementById('kunde-suchergebnisse');
+    
+    if (begriff.length < 2) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+    
+    suchTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/fuell-center/kunden/suche?q=${encodeURIComponent(begriff)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                let html = '';
+                data.kunden.forEach(kunde => {
+                    html += `
+                        <a href="#" class="list-group-item list-group-item-action" 
+                           onclick="kundeAuswaehlen(${kunde.id}); return false;">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>${kunde.name}</strong>
+                                    <small class="text-muted ms-2">${kunde.mitgliedsnummer}</small>
+                                </div>
+                                <small class="text-muted">${kunde.anzahl_flaschen} Flasche(n)</small>
+                            </div>
+                            ${kunde.telefon ? `<small class="text-muted">Tel: ${kunde.telefon}</small>` : ''}
+                        </a>
+                    `;
+                });
+                
+                resultsDiv.innerHTML = html || '<div class="list-group-item text-muted">Keine Kunden gefunden</div>';
+                resultsDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Fehler bei Kundensuche:', error);
+        }
+    }, 300);
+}
+
+function kundeAuswaehlen(kundeId) {
+    document.getElementById('kunde-suchergebnisse').style.display = 'none';
+    document.getElementById('kunde-suche').value = '';
+    schnellAnnahme(kundeId);
+}
+
+// Klick außerhalb schließt Suchergebnisse
+document.addEventListener('click', function(e) {
+    const searchBox = document.getElementById('kunde-suche');
+    const resultsDiv = document.getElementById('kunde-suchergebnisse');
+    
+    if (!searchBox.contains(e.target) && !resultsDiv.contains(e.target)) {
+        resultsDiv.style.display = 'none';
+    }
+});
+
+// ============================================================================
+// FÜLL-FUNKTIONEN
+// ============================================================================
+
+async function ladeWarteliste() {
+    const container = document.getElementById('warteliste-fuellung');
+    
+    try {
+        const response = await fetch('/api/fuell-center/warteliste');
+        const data = await response.json();
+        
+        if (data.success) {
+            let html = '';
+            
+            data.warteliste.forEach(flasche => {
+                const expressClass = flasche.ist_express ? 'express' : '';
+                const expressText = flasche.ist_express ? 'Express - ' : 'Normal - ';
+                
+                html += `
+                    <div class="flasche-item ${expressClass}">
+                        <div>
+                            <strong>${flasche.kunde_name}</strong> - ${flasche.ziel_druck} bar
+                            <small class="text-muted d-block">${expressText}${flasche.flasche_nummer}</small>
+                        </div>
+                        <button class="btn btn-sm btn-success" onclick="starteFuellung(${flasche.id})">
+                            <i class="fas fa-play"></i> Füllen
+                        </button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<div class="text-muted text-center">Keine Flaschen in der Warteliste</div>';
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Warteliste:', error);
+        container.innerHTML = '<div class="text-danger text-center">Fehler beim Laden</div>';
+    }
+}
+
+function kompressorToggle() {
+    kompressorStatus = !kompressorStatus;
+    aktualisiereKompressorAnzeige();
+    
+    if (kompressorStatus) {
+        showToast('success', 'Kompressor eingeschaltet!');
+    } else {
+        showToast('warning', 'Kompressor ausgeschaltet!');
+    }
+}
+
+function aktualisiereKompressorAnzeige() {
+    const statusEl = document.getElementById('kompressor-status');
+    if (kompressorStatus) {
+        statusEl.className = 'kompressor-status on';
+        statusEl.innerHTML = '<i class="fas fa-power-off me-2"></i><span>AN</span>';
+    } else {
+        statusEl.className = 'kompressor-status off';
+        statusEl.innerHTML = '<i class="fas fa-power-off me-2"></i><span>AUS</span>';
+    }
+}
+
+function startEinzelfuellung() {
+    if (!kompressorStatus) {
+        showToast('error', 'Bitte erst Kompressor einschalten!');
+        return;
+    }
+    // TODO: Einzelfüllung starten
+    showToast('info', 'Einzelfüllung wird gestartet...');
+}
+
+function startBulkfuellung() {
+    if (!kompressorStatus) {
+        showToast('error', 'Bitte erst Kompressor einschalten!');
+        return;
+    }
+    // TODO: Bulk-Füllung
+    window.location.href = '/bulk-fuelling';
+}
+
+function oeffneFuellmanager() {
+    // TODO: Füllmanager
+    window.location.href = '/fuellmanager';
+}
+
+// ============================================================================
+// ABHOLUNG-FUNKTIONEN
+// ============================================================================
+
+async function ladeFertigeFlaschen() {
+    const container = document.getElementById('fertige-flaschen');
+    
+    try {
+        const response = await fetch('/api/fuell-center/fertige-flaschen');
+        const data = await response.json();
+        
+        if (data.success) {
+            let html = '';
+            
+            data.fertige_flaschen.forEach(kunde => {
+                html += `
+                    <div class="flasche-item">
+                        <div>
+                            <strong>${kunde.kunde_name}</strong> - ${kunde.flaschen.length} Flaschen
+                            <small class="text-muted d-block">Fertig seit ${kunde.fertig_zeit} - ${kunde.gesamt_preis.toFixed(2)} €</small>
+                        </div>
+                        <button class="btn btn-sm btn-success" onclick="flascheAbholen(${kunde.kunde_id})">
+                            <i class="fas fa-check"></i> Abholen
+                        </button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<div class="text-muted text-center">Keine fertigen Flaschen</div>';
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der fertigen Flaschen:', error);
+        container.innerHTML = '<div class="text-danger text-center">Fehler beim Laden</div>';
+    }
+}
+
+function flascheAbholen(id) {
+    // TODO: Abholung verarbeiten
+    showToast('success', 'Flasche als abgeholt markiert!');
+}
+
+// ============================================================================
+// UTILITY
+// ============================================================================
+
+function showToast(type, message) {
+    const container = document.querySelector('.toast-container');
+    const toastId = 'toast-' + Date.now();
+    
+    const bgClass = type === 'success' ? 'bg-success' : 
+                   type === 'error' ? 'bg-danger' : 
+                   type === 'warning' ? 'bg-warning' : 'bg-info';
+    
+    const html = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', html);
+    
+    const toastEl = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+    
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+</script>
+{% endblock %}

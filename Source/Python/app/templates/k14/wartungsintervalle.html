@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}K14 Wartungsintervalle - WartungsManager{% endblock %}
+
+{% block content %}
+<style>
+.intervall-card {
+    border-left: 5px solid;
+    transition: all 0.3s ease;
+}
+
+.intervall-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.intervall-card.kritisch { border-left-color: #dc3545; }
+.intervall-card.warnung { border-left-color: #ffc107; }
+.intervall-card.ok { border-left-color: #28a745; }
+
+.countdown {
+    font-size: 2rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.checkliste-item {
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.checkliste-item:hover {
+    background-color: #f8f9fa;
+}
+
+.checkliste-item.checked {
+    background-color: #d4edda;
+    text-decoration: line-through;
+}
+</style>
+
+<!-- Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/k14/dokumentation">K14 Dokumentation</a></li>
+                <li class="breadcrumb-item active">Wartungsintervalle</li>
+            </ol>
+        </nav>
+        <h1 class="display-4">
+            <i class="fas fa-calendar-alt me-3"></i>K14 Wartungsintervalle
+        </h1>
+    </div>
+</div>
+
+<!-- Aktueller Status -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5>Gesamt-Betriebszeit</h5>
+                <div class="countdown text-primary" id="gesamt-stunden">--:--</div>
+                <small class="text-muted">Stunden</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5>Seit Patronenwechsel</h5>
+                <div class="countdown text-warning" id="intervall-stunden">--:--</div>
+                <small class="text-muted">von 100 Stunden</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5>Nächste Wartung in</h5>
+                <div class="countdown text-danger" id="naechste-wartung">--:--</div>
+                <small class="text-muted">Stunden</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wartungsintervalle Übersicht -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tasks me-2"></i>Wartungsintervalle
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Täglich -->
+                <div class="card intervall-card ok mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-sun text-warning me-2"></i>Tägliche Wartung
+                                </h6>
+                                <p class="mb-0 text-muted">Bei jedem Betrieb durchzuführen</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-success">Immer fällig</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-outline-primary" onclick="zeigeCheckliste('taeglich')">
+                                    <i class="fas fa-clipboard-check me-1"></i>Checkliste
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 100 Stunden -->
+                <div class="card intervall-card" id="patronenwechsel-card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-filter text-primary me-2"></i>Patronenwechsel
+                                </h6>
+                                <p class="mb-0 text-muted">Alle 100 Betriebsstunden</p>
+                                <div class="mt-2" id="patronenwechsel-status">
+                                    <!-- Wird dynamisch gefüllt -->
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-outline-primary me-2" onclick="zeigeCheckliste('patronenwechsel')">
+                                    <i class="fas fa-clipboard-check me-1"></i>Checkliste
+                                </button>
+                                <a href="/patronenwechsel" class="btn btn-warning">
+                                    <i class="fas fa-wrench me-1"></i>Durchführen
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 500 Stunden -->
+                <div class="card intervall-card ok mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-tools text-info me-2"></i>Große Inspektion
+                                </h6>
+                                <p class="mb-0 text-muted">Alle 500 Betriebsstunden</p>
+                                <div class="mt-2">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-info" id="inspektion-progress" style="width: 0%">
+                                            0%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-outline-primary" onclick="zeigeCheckliste('inspektion')">
+                                    <i class="fas fa-clipboard-check me-1"></i>Checkliste
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Jährlich -->
+                <div class="card intervall-card ok mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-calendar-check text-success me-2"></i>Hauptwartung
+                                </h6>
+                                <p class="mb-0 text-muted">Jährlich oder alle 1000 Stunden</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-secondary">Nächste Wartung: <span id="naechste-hauptwartung">--</span></span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-outline-primary" onclick="zeigeCheckliste('hauptwartung')">
+                                    <i class="fas fa-clipboard-check me-1"></i>Checkliste
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wartungshistorie -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Letzte Wartungen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="wartungshistorie">
+                    <!-- Wird dynamisch geladen -->
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Laden...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Checklisten Modal -->
+<div class="modal fade" id="checklisteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="checkliste-titel">
+                    <i class="fas fa-clipboard-check me-2"></i>Checkliste
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="checkliste-inhalt">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Schließen
+                </button>
+                <button type="button" class="btn btn-success" onclick="checklisteDrucken()">
+                    <i class="fas fa-print me-2"></i>Drucken
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Checklisten-Daten
+const checklisten = {
+    taeglich: {
+        titel: 'Tägliche Wartung',
+        items: [
+            'Öl-Test durchführen (Farbe, Geruch, Metallspäne)',
+            'Kondenswasser ablassen',
+            'Sichtprüfung auf Leckagen',
+            'Betriebsgeräusche prüfen',
+            'Manometer ablesen und notieren',
+            'Umgebungstemperatur prüfen'
+        ]
+    },
+    patronenwechsel: {
+        titel: 'Patronenwechsel (100h)',
+        items: [
+            'Kompressor ausschalten und drucklos machen',
+            'Mindestens 30 Minuten abkühlen lassen',
+            'Alte Patronen entfernen und entsorgen',
+            'Patronengehäuse reinigen',
+            'Dichtungen prüfen und ggf. ersetzen',
+            'Neue Patronen einsetzen',
+            'Verschlüsse mit korrektem Drehmoment anziehen',
+            'Wartungsintervall zurücksetzen (Passwort!)',
+            'Testlauf durchführen',
+            'Erste Füllung verwerfen',
+            'Protokoll erstellen'
+        ]
+    },
+    inspektion: {
+        titel: 'Große Inspektion (500h)',
+        items: [
+            'Komplette Sichtprüfung aller Komponenten',
+            'Ventilüberholung durchführen',
+            'Kolbenringe prüfen und ggf. tauschen',
+            'Kühler reinigen',
+            'Riemenspannung prüfen und einstellen',
+            'Elektrische Anschlüsse prüfen',
+            'Schwingungsdämpfer kontrollieren',
+            'Ölwechsel durchführen',
+            'Luftfilter ersetzen',
+            'Sicherheitsventile prüfen',
+            'Kompressor-Ausrichtung prüfen'
+        ]
+    },
+    hauptwartung: {
+        titel: 'Hauptwartung (Jährlich/1000h)',
+        items: [
+            'Komplette Demontage und Inspektion',
+            'Druckbehälter-Prüfung nach BetrSichV',
+            'Motor-Überholung',
+            'Alle Dichtungen erneuern',
+            'Sicherheitsventile kalibrieren lassen',
+            'Elektrik komplett prüfen (VDE)',
+            'Dokumentation aktualisieren',
+            'TÜV-Prüfung vorbereiten',
+            'Ersatzteilliste aktualisieren',
+            'Schulung des Personals'
+        ]
+    }
+};
+
+// Initialisierung
+document.addEventListener('DOMContentLoaded', function() {
+    ladeWartungsstatus();
+    ladeWartungshistorie();
+    
+    // Auto-Refresh alle 30 Sekunden
+    setInterval(ladeWartungsstatus, 30000);
+});
+
+// Wartungsstatus laden
+async function ladeWartungsstatus() {
+    try {
+        const response = await fetch('/api/k14/wartungsstatus');
+        const result = await response.json();
+        
+        if (result.success) {
+            // Gesamt-Betriebszeit
+            document.getElementById('gesamt-stunden').textContent = 
+                result.gesamt_betriebszeit.toFixed(1);
+            
+            // Wartungsintervall
+            const intervall = result.wartungsintervall;
+            if (intervall.hat_intervall) {
+                document.getElementById('intervall-stunden').textContent = 
+                    intervall.intervall_stunden.toFixed(1);
+                
+                document.getElementById('naechste-wartung').textContent = 
+                    intervall.wartung_faellig_in.toFixed(1);
+                
+                // Status-Update für Patronenwechsel
+                const card = document.getElementById('patronenwechsel-card');
+                const status = document.getElementById('patronenwechsel-status');
+                
+                if (intervall.ist_faellig) {
+                    card.className = 'card intervall-card kritisch mb-3';
+                    status.innerHTML = '<span class="badge bg-danger">WARTUNG FÄLLIG!</span>';
+                } else if (intervall.wartung_faellig_in < 10) {
+                    card.className = 'card intervall-card warnung mb-3';
+                    status.innerHTML = '<span class="badge bg-warning">Bald fällig</span>';
+                } else {
+                    card.className = 'card intervall-card ok mb-3';
+                    status.innerHTML = '<span class="badge bg-success">OK</span>';
+                }
+            }
+            
+            // Progress für große Inspektion
+            const inspektionProgress = (result.gesamt_betriebszeit % 500) / 500 * 100;
+            document.getElementById('inspektion-progress').style.width = inspektionProgress + '%';
+            document.getElementById('inspektion-progress').textContent = Math.round(inspektionProgress) + '%';
+            
+            // Nächste Hauptwartung (vereinfacht - 1 Jahr ab letztem Reset)
+            const naechsteHauptwartung = new Date();
+            naechsteHauptwartung.setFullYear(naechsteHauptwartung.getFullYear() + 1);
+            document.getElementById('naechste-hauptwartung').textContent = 
+                naechsteHauptwartung.toLocaleDateString('de-DE');
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden des Wartungsstatus:', error);
+    }
+}
+
+// Wartungshistorie laden
+async function ladeWartungshistorie() {
+    try {
+        const response = await fetch('/api/k14/wartungsstatus');
+        const result = await response.json();
+        
+        if (result.success && result.letzte_wartungen) {
+            const container = document.getElementById('wartungshistorie');
+            
+            if (result.letzte_wartungen.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Noch keine Wartungen dokumentiert</p>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-sm">';
+            html += '<thead><tr><th>Datum</th><th>Typ</th><th>Durchgeführt von</th><th>Notizen</th></tr></thead><tbody>';
+            
+            result.letzte_wartungen.forEach(wartung => {
+                const datum = new Date(wartung.start_datum).toLocaleDateString('de-DE');
+                html += `
+                    <tr>
+                        <td>${datum}</td>
+                        <td><span class="badge bg-secondary">${wartung.name}</span></td>
+                        <td>${wartung.durchgefuehrt_von || '-'}</td>
+                        <td><small>${wartung.reset_grund || '-'}</small></td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Historie:', error);
+    }
+}
+
+// Checkliste anzeigen
+function zeigeCheckliste(typ) {
+    const checkliste = checklisten[typ];
+    if (!checkliste) return;
+    
+    document.getElementById('checkliste-titel').innerHTML = 
+        `<i class="fas fa-clipboard-check me-2"></i>${checkliste.titel}`;
+    
+    let html = '<div class="checkliste">';
+    checkliste.items.forEach((item, index) => {
+        html += `
+            <div class="checkliste-item" onclick="toggleCheck(this)">
+                <input type="checkbox" class="form-check-input me-2" id="check-${index}">
+                <label for="check-${index}" style="cursor: pointer;">${item}</label>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    document.getElementById('checkliste-inhalt').innerHTML = html;
+    
+    const modal = new bootstrap.Modal(document.getElementById('checklisteModal'));
+    modal.show();
+}
+
+// Checkbox toggle
+function toggleCheck(element) {
+    const checkbox = element.querySelector('input[type="checkbox"]');
+    checkbox.checked = !checkbox.checked;
+    element.classList.toggle('checked', checkbox.checked);
+}
+
+// Checkliste drucken
+function checklisteDrucken() {
+    window.print();
+}
+</script>
+{% endblock %}
+
+**Erstellt von Hans Hahn - Alle Rechte vorbehalten**

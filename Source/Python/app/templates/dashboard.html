@@ -1,0 +1,1217 @@
+{% extends "admin_layout.html" %}
+
+{% block title %}Dashboard - WartungsManager{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-grid.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-4 text-center mb-4">
+            <i class="fas fa-tachometer-alt me-3"></i>Wartungs-Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- KOMPRESSOR STEUERUNG - Touch-optimierte Buttons -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="text-center mb-4">
+            <i class="fas fa-cog me-2"></i>Kompressor-Steuerung
+            <span id="ipad-indicator" class="badge bg-info ms-2" style="display: none;">iPad-Modus</span>
+        </h2>
+    </div>
+</div>
+
+<!-- iPad-spezifische Öl-Test Sektion (inline statt Modal) -->
+<div id="ipad-oil-test-section" class="row mb-4" style="display: none;">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-oil-can me-2"></i>Öl-Test vor Kompressor-Start
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning mb-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Wichtig:</strong> Vor dem Kompressor-Start muss ein Öl-Test durchgeführt werden!
+                </div>
+                
+                <form id="ipadOelTestForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Füller/Operator:</label>
+                            <input type="text" class="form-control form-control-lg" id="ipadFueller" 
+                                   placeholder="Ihr Name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Öl-Tester:</label>
+                            <input type="text" class="form-control form-control-lg" id="ipadOelTester" 
+                                   placeholder="Name des Öl-Testers" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Öl-Test Ergebnis:</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ipadOelTestErgebnis" id="ipadOelOK" value="OK" required>
+                            <label class="btn btn-outline-success btn-lg" for="ipadOelOK">
+                                <i class="fas fa-check-circle fa-2x d-block mb-2"></i>
+                                <strong>ÖL OK</strong>
+                                <small class="d-block">Test bestanden</small>
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="ipadOelTestErgebnis" id="ipadOelNOK" value="NOK" required>
+                            <label class="btn btn-outline-danger btn-lg" for="ipadOelNOK">
+                                <i class="fas fa-times-circle fa-2x d-block mb-2"></i>
+                                <strong>ÖL NOK</strong>
+                                <small class="d-block">Test fehlgeschlagen</small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="ipadNokWarning" class="alert alert-danger mb-3" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>ACHTUNG:</strong> Bei NOK-Ergebnis darf der Kompressor nicht gestartet werden!
+                        Erst Öl wechseln und erneut testen.
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary btn-lg me-md-2" onclick="ipadOelTestAbbrechen()">
+                            <i class="fas fa-times me-2"></i>Abbrechen
+                        </button>
+                        <button type="button" class="btn btn-success btn-lg" id="ipadOelTestBestaetigen" onclick="ipadOelTestBestaetigen()">
+                            <i class="fas fa-check me-2"></i>Kompressor starten
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- iPad-spezifische Bestätigungs-Sektion (statt confirm()) -->
+<div id="ipad-confirmation-section" class="row mb-4" style="display: none;">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Kompressor ausschalten
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="lead">Möchten Sie den Kompressor wirklich ausschalten?</p>
+                <p class="text-muted">Die aktuelle Betriebszeit wird gespeichert.</p>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <button type="button" class="btn btn-danger btn-lg me-md-2" onclick="ipadKompressorAusschaltenBestaetigen()">
+                        <i class="fas fa-stop me-2"></i>Ja, ausschalten
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-lg" onclick="ipadBestaetigungAbbrechen()">
+                        <i class="fas fa-times me-2"></i>Abbrechen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="touch-grid mb-5">
+    <button id="kompressor-an-btn" class="btn btn-success btn-touch" onclick="kompressorEinschalten()">
+        <i class="fas fa-power-off fa-2x d-block mb-2"></i>
+        <strong>KOMPRESSOR AN</strong>
+        <small class="d-block">Mit Öl-Test</small>
+    </button>
+    
+    <button id="kompressor-aus-btn" class="btn btn-danger btn-touch" onclick="kompressorAusschalten()" disabled>
+        <i class="fas fa-stop fa-2x d-block mb-2"></i>
+        <strong>KOMPRESSOR AUS</strong>
+        <small class="d-block">Betrieb beenden</small>
+    </button>
+    
+    <a href="{{ url_for('maintenance.index') }}" class="btn btn-warning btn-touch">
+        <i class="fas fa-wrench fa-2x d-block mb-2"></i>
+        <strong>WARTUNG</strong>
+        <small class="d-block">Service & Reparatur</small>
+    </a>
+    
+    <a href="{{ url_for('protocol.index') }}" class="btn btn-info btn-touch">
+        <i class="fas fa-clipboard-list fa-2x d-block mb-2"></i>
+        <strong>PROTOKOLL</strong>
+        <small class="d-block">Füll-Verlauf</small>
+    </a>
+    
+    <a href="{{ url_for('fuelling.index') }}" class="btn btn-primary btn-touch">
+        <i class="fas fa-fill-drip fa-2x d-block mb-2"></i>
+        <strong>FÜLL-CENTER</strong>
+        <small class="d-block">Annahme • Füllung • Abholung</small>
+    </a>
+    
+    <a href="{{ url_for('admin.index') }}" class="btn btn-success btn-touch">
+        <i class="fas fa-users fa-2x d-block mb-2"></i>
+        <strong>KUNDEN</strong>
+        <small class="d-block">Kunden & Flaschen verwalten</small>
+    </a>
+    
+    <a href="/shelly" class="btn btn-purple btn-touch" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white;">
+        <i class="fas fa-plug fa-2x d-block mb-2"></i>
+        <strong>SHELLY IoT</strong>
+        <small class="d-block">Smart Home Geräte</small>
+    </a>
+    
+    <button class="btn btn-secondary btn-touch" onclick="refreshStatus()">
+        <i class="fas fa-sync-alt fa-2x d-block mb-2"></i>
+        <strong>STATUS UPDATE</strong>
+        <small class="d-block">System neu laden</small>
+    </button>
+</div>
+
+<!-- SHELLY WIDGETS - Dynamisch aus Konfiguration -->
+<div class="row mb-4" id="shelly-widgets" style="display: none;">
+    <div class="col-12">
+        <h3 class="text-center mb-3">
+            <i class="fas fa-plug me-2"></i>Shelly Geräte
+        </h3>
+    </div>
+    <div class="col-12">
+        <div class="d-flex flex-wrap gap-3 justify-content-center" id="shelly-widget-container">
+            <!-- Widgets werden hier dynamisch eingefügt -->
+        </div>
+    </div>
+</div>
+
+<!-- KOMPRESSOR STATUS DISPLAY -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="status-display" id="kompressor-status-card">
+            <h3><i class="fas fa-cog me-2"></i>Kompressor Status</h3>
+            <div id="kompressor-status-display" class="timer-large text-muted">
+                <span id="kompressor-timer">BEREIT</span>
+            </div>
+            <div class="total-hours" id="kompressor-info">
+                <span id="kompressor-details">System bereit</span>
+            </div>
+            <div class="mt-3" id="oel-test-info" style="display: none;">
+                <div class="badge bg-success fs-6" id="oel-test-badge">
+                    <i class="fas fa-check-circle me-1"></i>Öl-Test: OK
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="status-display">
+            <h3><i class="fas fa-clock me-2"></i>Gesamt-Betriebsstunden</h3>
+            <div class="timer-large text-primary" id="gesamt-betriebsstunden">
+                <span id="total-hours-display">0.0h</span>
+            </div>
+            <div class="total-hours" id="betriebsstunden-info">
+                <span id="total-cycles-display">0 Zyklen</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PATRONENWECHSEL STATUS (MINIMIERT) -->  
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="status-display">
+            <h3><i class="fas fa-filter me-2"></i>Patronenwechsel</h3>
+            <div class="timer-large" id="patronenwechsel-status-display">
+                <span id="patronenwechsel-countdown">Lädt...</span>
+            </div>
+            <div class="total-hours" id="patronenwechsel-info-bereich">
+                <span id="patronenwechsel-details">Status wird geladen...</span>
+            </div>
+            <div class="mt-3">
+                <a href="{{ url_for('maintenance.patrone_wechseln') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-wrench me-1"></i>Zur Wartung
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-history fa-3x text-info mb-3"></i>
+                <h5>Letzter Patronenwechsel</h5>
+                <h2 class="text-info" id="letzter-patronenwechsel">Noch nie</h2>
+                <small class="text-muted" id="patronenwechsel-info">Keine Daten verfügbar</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wartungs-Übersicht -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <h5>Überfällige Wartungen</h5>
+                <h2 class="text-warning" id="ueberfaellige-wartungen">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-week fa-3x text-info mb-3"></i>
+                <h5>Diese Woche fällig</h5>
+                <h2 class="text-info" id="wartungen-diese-woche">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-flask fa-3x text-success mb-3"></i>
+                <h5>Handbefüllungen</h5>
+                <h2 class="text-success" id="handbefuellungen-total">0</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QUICK INFO CARDS -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-success text-center">
+            <div class="card-body">
+                <i class="fas fa-oil-can fa-2x text-success mb-2"></i>
+                <h6>Öl-Test Quote</h6>
+                <h4 class="text-success" id="oel-test-quote">---%</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-primary text-center">
+            <div class="card-body">
+                <i class="fas fa-history fa-2x text-primary mb-2"></i>
+                <h6>Durchschn. Laufzeit</h6>
+                <h4 class="text-primary" id="avg-runtime">--h</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-warning text-center">
+            <div class="card-body">
+                <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                <h6>Wartung fällig in</h6>
+                <h4 class="text-warning" id="wartung-faellig">--h</h4>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-info text-center">
+            <div class="card-body">
+                <i class="fas fa-calendar-day fa-2x text-info mb-2"></i>
+                <h6>Heute gestartet</h6>
+                <h4 class="text-info" id="heute-starts">0x</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container für iPad-freundliche Benachrichtigungen -->
+<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+    <!-- Toasts werden hier dynamisch eingefügt -->
+</div>
+
+<!-- Live-Update Bereich -->
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Live-System:</strong> Kompressor-Steuerung mit Öl-Test Integration - Touch-optimiert für Tablet
+            <span class="float-end">
+                <small id="last-update">Letztes Update: --</small>
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- ÖL-TEST MODAL -->
+<div class="modal fade" id="oelTestModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h4 class="modal-title">
+                    <i class="fas fa-oil-can me-2"></i>Öl-Test vor Kompressor-Start
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Wichtig:</strong> Vor dem Kompressor-Start muss ein Öl-Test durchgeführt werden!
+                </div>
+                
+                <form id="oelTestForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Füller/Operator:</label>
+                                <input type="text" class="form-control form-control-lg" id="fueller" 
+                                       placeholder="Ihr Name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Öl-Tester:</label>
+                                <input type="text" class="form-control form-control-lg" id="oelTester" 
+                                       placeholder="Name des Öl-Testers" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Öl-Test Ergebnis:</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="oelTestErgebnis" id="oelOK" value="OK" required>
+                            <label class="btn btn-outline-success btn-lg" for="oelOK">
+                                <i class="fas fa-check-circle fa-2x d-block mb-2"></i>
+                                <strong>ÖL OK</strong>
+                                <small class="d-block">Test bestanden</small>
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="oelTestErgebnis" id="oelNOK" value="NOK" required>
+                            <label class="btn btn-outline-danger btn-lg" for="oelNOK">
+                                <i class="fas fa-times-circle fa-2x d-block mb-2"></i>
+                                <strong>ÖL NOK</strong>
+                                <small class="d-block">Test fehlgeschlagen</small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="nokWarning" class="alert alert-danger" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>ACHTUNG:</strong> Bei NOK-Ergebnis darf der Kompressor nicht gestartet werden!
+                        Erst Öl wechseln und erneut testen.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-lg" onclick="oelTestAbbrechen()">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-success btn-lg" id="oelTestBestaetigen" onclick="oelTestBestaetigen()">
+                    <i class="fas fa-check me-2"></i>Kompressor starten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patronenwechsel-Modal entfernt - Funktionalität ist jetzt in der Wartung -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// KOMPRESSOR-STEUERUNG JAVASCRIPT - MIT IPAD-UNTERSTÜTZUNG
+// ============================================================================
+
+let currentKompressorStatus = null;
+let liveUpdateInterval = null;
+let isiPadDevice = false;
+
+// Beim Laden der Seite den aktuellen Status abrufen
+document.addEventListener('DOMContentLoaded', function() {
+    // iPad-Detection
+    isiPadDevice = detectiPad();
+    
+    if (isiPadDevice) {
+        setupiPadMode();
+    } else {
+        // Öl-Test Modal Event-Listener nur für Desktop
+        setupOelTestModalListeners();
+    }
+    
+    refreshStatus();
+    
+    // Auto-refresh alle 30 Sekunden
+    setInterval(refreshStatus, 30000);
+});
+
+// ============================================================================
+// IPAD-DETECTION & SETUP
+// ============================================================================
+
+function detectiPad() {
+    // iPad Detection - auch für neuere iPads mit Desktop User Agent
+    return navigator.userAgent.match(/iPad/i) !== null ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+           (window.screen.width >= 1024 && window.screen.height >= 768 && 'ontouchstart' in window);
+}
+
+function setupiPadMode() {
+    console.log('iPad-Modus aktiviert');
+    
+    // iPad-Indikator anzeigen
+    document.getElementById('ipad-indicator').style.display = 'inline-block';
+    
+    // Body-Klasse für iPad-spezifische Styles hinzufügen
+    document.body.classList.add('ipad-device');
+    
+    // iPad-spezifische Event-Listener einrichten
+    setupiPadEventListeners();
+    
+    // Touch-Events für bessere Bedienung
+    setupTouchOptimizations();
+}
+
+function setupiPadEventListeners() {
+    // iPad Öl-Test Event-Listener
+    const ipadOelNOK = document.getElementById('ipadOelNOK');
+    const ipadOelOK = document.getElementById('ipadOelOK');
+    
+    if (ipadOelNOK) {
+        ipadOelNOK.addEventListener('change', function() {
+            document.getElementById('ipadNokWarning').style.display = 'block';
+            document.getElementById('ipadOelTestBestaetigen').disabled = true;
+            document.getElementById('ipadOelTestBestaetigen').innerHTML = 
+                '<i class="fas fa-times me-2"></i>Kompressor NICHT starten';
+        });
+    }
+    
+    if (ipadOelOK) {
+        ipadOelOK.addEventListener('change', function() {
+            document.getElementById('ipadNokWarning').style.display = 'none';
+            document.getElementById('ipadOelTestBestaetigen').disabled = false;
+            document.getElementById('ipadOelTestBestaetigen').innerHTML = 
+                '<i class="fas fa-check me-2"></i>Kompressor starten';
+        });
+    }
+}
+
+function setupTouchOptimizations() {
+    // Touch-Events für bessere Responsivität auf iPad
+    const touchButtons = document.querySelectorAll('.btn-touch, .btn-lg');
+    
+    touchButtons.forEach(button => {
+        // Haptic Feedback Simulation
+        button.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.95)';
+        });
+        
+        button.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+}
+
+// ============================================================================
+// KOMPRESSOR STEUERUNG
+// ============================================================================
+
+function kompressorEinschalten() {
+    if (isiPadDevice) {
+        // iPad: Inline-Formular anzeigen statt Modal
+        ipadZeigeOelTest();
+    } else {
+        // Desktop: Öl-Test Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('oelTestModal'));
+        modal.show();
+    }
+}
+
+function kompressorAusschalten() {
+    if (isiPadDevice) {
+        // iPad: Inline-Bestätigung anzeigen statt confirm()
+        ipadZeigeBestätigung();
+    } else {
+        // Desktop: confirm() Dialog verwenden
+        if (confirm('Kompressor wirklich ausschalten?\n\nDie aktuelle Betriebszeit wird gespeichert.')) {
+            executeKompressorAusschalten();
+        }
+    }
+}
+
+function executeKompressorAusschalten() {
+    showLoadingState('Kompressor wird ausgeschaltet...');
+    
+    fetch('/api/kompressor/ausschalten', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            notizen: 'Ausgeschaltet über Dashboard'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(`Kompressor ausgeschaltet!\nBetriebsdauer: ${data.betriebsdauer_stunden}h`);
+            refreshStatus();
+        } else {
+            showErrorMessage('Fehler beim Ausschalten: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler: ' + error.message);
+    })
+    .finally(() => {
+        hideLoadingState();
+    });
+}
+
+// ============================================================================
+// ÖL-TEST MODAL
+// ============================================================================
+
+function setupOelTestModalListeners() {
+    // NOK-Warnung anzeigen wenn NOK gewählt wird
+    document.getElementById('oelNOK').addEventListener('change', function() {
+        document.getElementById('nokWarning').style.display = 'block';
+        document.getElementById('oelTestBestaetigen').disabled = true;
+        document.getElementById('oelTestBestaetigen').innerHTML = 
+            '<i class="fas fa-times me-2"></i>Kompressor NICHT starten';
+    });
+    
+    // NOK-Warnung ausblenden wenn OK gewählt wird
+    document.getElementById('oelOK').addEventListener('change', function() {
+        document.getElementById('nokWarning').style.display = 'none';
+        document.getElementById('oelTestBestaetigen').disabled = false;
+        document.getElementById('oelTestBestaetigen').innerHTML = 
+            '<i class="fas fa-check me-2"></i>Kompressor starten';
+    });
+}
+
+function oelTestAbbrechen() {
+    // Modal schließen und Form zurücksetzen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('oelTestModal'));
+    modal.hide();
+    document.getElementById('oelTestForm').reset();
+    document.getElementById('nokWarning').style.display = 'none';
+    document.getElementById('oelTestBestaetigen').disabled = false;
+}
+
+function oelTestBestaetigen() {
+    const form = document.getElementById('oelTestForm');
+    const fueller = document.getElementById('fueller').value.trim();
+    const oelTester = document.getElementById('oelTester').value.trim();
+    const oelTestErgebnis = document.querySelector('input[name="oelTestErgebnis"]:checked')?.value;
+    
+    // Validierung
+    if (!fueller) {
+        alert('Bitte Füller-Namen eingeben!');
+        return;
+    }
+    
+    if (!oelTester) {
+        alert('Bitte Öl-Tester Namen eingeben!');
+        return;
+    }
+    
+    if (!oelTestErgebnis) {
+        alert('Bitte Öl-Test Ergebnis auswählen!');
+        return;
+    }
+    
+    // Bei NOK nicht starten
+    if (oelTestErgebnis === 'NOK') {
+        showErrorMessage('Kompressor kann nicht gestartet werden!\nÖl-Test NOK - erst Öl wechseln und erneut testen.');
+        return;
+    }
+    
+    // Modal schließen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('oelTestModal'));
+    modal.hide();
+    
+    // Kompressor einschalten
+    startKompressorWithOelTest(fueller, oelTester, oelTestErgebnis);
+}
+
+function startKompressorWithOelTest(fueller, oelTester, oelTestErgebnis) {
+    showLoadingState('Kompressor wird gestartet...');
+    
+    fetch('/api/kompressor/einschalten', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            fueller: fueller,
+            oel_getestet: true,
+            oel_test_ergebnis: oelTestErgebnis,
+            oel_tester: oelTester
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(`Kompressor erfolgreich gestartet!\nFüller: ${fueller}\nÖl-Test: ${oelTestErgebnis} (${oelTester})`);
+            refreshStatus();
+            
+            // Form zurücksetzen für nächsten Gebrauch
+            document.getElementById('oelTestForm').reset();
+        } else {
+            showErrorMessage('Fehler beim Starten: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showErrorMessage('Netzwerkfehler: ' + error.message);
+    })
+    .finally(() => {
+        hideLoadingState();
+    });
+}
+
+// ============================================================================
+// STATUS AKTUALISIERUNG
+// ============================================================================
+
+function refreshStatus() {
+    // Kompressor-Status laden
+    fetch('/api/kompressor/status')
+        .then(response => response.json())
+        .then(data => {
+            updateKompressorStatus(data);
+            updateLastUpdate();
+        })
+        .catch(error => {
+            console.error('Fehler beim Status-Update:', error);
+            showErrorMessage('Fehler beim Status-Update: ' + error.message);
+        });
+    
+    // Wartungs-Check
+    fetch('/api/kompressor/wartung/check')
+        .then(response => response.json())
+        .then(data => {
+            updateWartungsInfo(data);
+        })
+        .catch(error => {
+            console.error('Wartungs-Check Fehler:', error);
+        });
+    
+    // Patronenwechsel-Status laden
+    fetch('/api/maintenance/dashboard-status')
+        .then(response => response.json())
+        .then(data => {
+            updatePatronenwechselStatus(data);
+        })
+        .catch(error => {
+            console.error('Patronenwechsel-Status Fehler:', error);
+            // Fallback-Werte setzen
+            document.getElementById('patronenwechsel-countdown').textContent = '--';
+            document.getElementById('patronenwechsel-details').textContent = 'Fehler beim Laden';
+        });
+    
+    // System-Status für übrige Daten laden
+    fetch('/api/kompressor/system/status')
+        .then(response => response.json())
+        .then(data => {
+            updateSystemStats(data);
+        })
+        .catch(error => {
+            console.error('System-Status Fehler:', error);
+            // Fallback-Werte setzen wenn API nicht verfügbar
+            document.getElementById('ueberfaellige-wartungen').textContent = '--';
+            document.getElementById('wartungen-diese-woche').textContent = '--';
+            document.getElementById('handbefuellungen-total').textContent = '--';
+        });
+}
+
+function updateKompressorStatus(statusData) {
+    currentKompressorStatus = statusData;
+    
+    const timerElement = document.getElementById('kompressor-timer');
+    const detailsElement = document.getElementById('kompressor-details');
+    const statusDisplay = document.getElementById('kompressor-status-display');
+    const oelTestInfo = document.getElementById('oel-test-info');
+    const anBtn = document.getElementById('kompressor-an-btn');
+    const ausBtn = document.getElementById('kompressor-aus-btn');
+    
+    if (statusData.ist_an && statusData.aktiver_kompressor) {
+        // Kompressor läuft
+        statusDisplay.className = 'timer-large text-success';
+        timerElement.textContent = 'LÄUFT';
+        detailsElement.textContent = `Füller: ${statusData.aktiver_kompressor.fueller}`;
+        
+        // Öl-Test Info anzeigen
+        if (statusData.aktiver_kompressor.oel_getestet) {
+            oelTestInfo.style.display = 'block';
+            const badge = document.getElementById('oel-test-badge');
+            if (statusData.aktiver_kompressor.oel_test_ergebnis === 'OK') {
+                badge.className = 'badge bg-success fs-6';
+                badge.innerHTML = '<i class="fas fa-check-circle me-1"></i>Öl-Test: OK (' + statusData.aktiver_kompressor.oel_tester + ')';
+            } else {
+                badge.className = 'badge bg-danger fs-6';
+                badge.innerHTML = '<i class="fas fa-times-circle me-1"></i>Öl-Test: NOK (' + statusData.aktiver_kompressor.oel_tester + ')';
+            }
+        } else {
+            oelTestInfo.style.display = 'none';
+        }
+        
+        // Buttons aktualisieren
+        anBtn.disabled = true;
+        ausBtn.disabled = false;
+        
+        // Live-Timer starten
+        startLiveTimer(statusData.aktiver_kompressor.start_zeit);
+        
+    } else {
+        // Kompressor steht
+        statusDisplay.className = 'timer-large text-muted';
+        timerElement.textContent = 'BEREIT';
+        detailsElement.textContent = 'System bereit';
+        oelTestInfo.style.display = 'none';
+        
+        // Buttons aktualisieren
+        anBtn.disabled = false;
+        ausBtn.disabled = true;
+        
+        // Live-Timer stoppen
+        stopLiveTimer();
+    }
+    
+    // Gesamt-Betriebsstunden
+    if (statusData.statistiken) {
+        document.getElementById('total-hours-display').textContent = statusData.statistiken.gesamt_betriebsstunden + 'h';
+        document.getElementById('total-cycles-display').textContent = statusData.statistiken.total_zyklen + ' Zyklen';
+        
+        // Quick Info Cards
+        if (statusData.statistiken.oel_statistiken) {
+            document.getElementById('oel-test-quote').textContent = statusData.statistiken.oel_statistiken.test_quote + '%';
+        }
+        document.getElementById('avg-runtime').textContent = statusData.statistiken.durchschnitt_laufzeit + 'h';
+    }
+}
+
+function updateWartungsInfo(wartungsData) {
+    if (wartungsData.stunden_bis_wartung !== undefined) {
+        const wartungElement = document.getElementById('wartung-faellig');
+        wartungElement.textContent = wartungsData.stunden_bis_wartung + 'h';
+        
+        // Farbe je nach Dringlichkeit
+        if (wartungsData.wartung_faellig) {
+            wartungElement.className = 'text-danger';
+        } else if (wartungsData.stunden_bis_wartung < 20) {
+            wartungElement.className = 'text-warning';
+        } else {
+            wartungElement.className = 'text-success';
+        }
+    }
+}
+
+function updateSystemStats(systemData) {
+    // Fallback-Werte falls Daten nicht verfügbar
+    const ueberfaelligeWartungen = systemData.wartungen?.ueberfaellige || 0;
+    const wartungenDieseWoche = systemData.wartungen?.diese_woche || 0;
+    const handbefuellungen = systemData.protocol?.total_befuellungen || 0;
+    
+    // UI aktualisieren
+    document.getElementById('ueberfaellige-wartungen').textContent = ueberfaelligeWartungen;
+    document.getElementById('wartungen-diese-woche').textContent = wartungenDieseWoche;
+    document.getElementById('handbefuellungen-total').textContent = handbefuellungen;
+    
+    // Heute-Starts aktualisieren (aus Kompressor-Daten)
+    if (systemData.kompressor?.heute_starts !== undefined) {
+        document.getElementById('heute-starts').textContent = systemData.kompressor.heute_starts + 'x';
+    }
+}
+
+// ============================================================================
+// LIVE TIMER
+// ============================================================================
+
+function startLiveTimer(startZeit) {
+    stopLiveTimer(); // Vorherigen Timer stoppen
+    
+    liveUpdateInterval = setInterval(() => {
+        const startTime = new Date(startZeit);
+        const now = new Date();
+        const diff = now - startTime;
+        
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        const timerElement = document.getElementById('kompressor-timer');
+        if (timerElement) {
+            timerElement.textContent = timeString;
+        }
+    }, 1000);
+}
+
+function stopLiveTimer() {
+    if (liveUpdateInterval) {
+        clearInterval(liveUpdateInterval);
+        liveUpdateInterval = null;
+    }
+}
+
+// ============================================================================
+// BULK-FÜLLUNG & WEITERE FUNKTIONEN
+// ============================================================================
+
+function flaschenFuellenStarten() {
+    // Prüfe ob Kompressor läuft
+    if (!currentKompressorStatus || !currentKompressorStatus.ist_an) {
+        showErrorMessage('Kompressor muss laufen zum Füllen!\n\nBitte starten Sie zuerst den Kompressor.');
+        return;
+    }
+    
+    // Zum Füll-Interface weiterleiten
+    window.location.href = '/flaschen-fuellen';
+}
+
+// ============================================================================
+// UI HELPER FUNKTIONEN
+// ============================================================================
+
+function updateLastUpdate() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('de-DE');
+    document.getElementById('last-update').textContent = `Letztes Update: ${timeString}`;
+}
+
+function showLoadingState(message) {
+    // TODO: Loading-Overlay implementieren
+    console.log('Loading:', message);
+}
+
+function hideLoadingState() {
+    // TODO: Loading-Overlay ausblenden
+    console.log('Loading beendet');
+}
+
+function showSuccessMessage(message) {
+    if (isiPadDevice) {
+        showToast(message, 'success');
+    } else {
+        alert('✅ ' + message);
+    }
+}
+
+function showErrorMessage(message) {
+    if (isiPadDevice) {
+        showToast(message, 'danger');
+    } else {
+        alert('❌ ' + message);
+    }
+}
+
+function showInfoMessage(message) {
+    if (isiPadDevice) {
+        showToast(message, 'info');
+    } else {
+        alert('ℹ️ ' + message);
+    }
+}
+
+// ============================================================================
+// IPAD-SPEZIFISCHE FUNKTIONEN
+// ============================================================================
+
+function ipadZeigeOelTest() {
+    // Alle anderen Bereiche ausblenden
+    document.getElementById('ipad-confirmation-section').style.display = 'none';
+    
+    // Öl-Test Bereich einblenden
+    document.getElementById('ipad-oil-test-section').style.display = 'block';
+    
+    // Smooth Scroll zum Formular
+    document.getElementById('ipad-oil-test-section').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+    });
+    
+    // Fokus auf erstes Eingabefeld
+    setTimeout(() => {
+        document.getElementById('ipadFueller').focus();
+    }, 500);
+}
+
+function ipadOelTestAbbrechen() {
+    // Öl-Test Bereich ausblenden
+    document.getElementById('ipad-oil-test-section').style.display = 'none';
+    
+    // Formular zurücksetzen
+    document.getElementById('ipadOelTestForm').reset();
+    document.getElementById('ipadNokWarning').style.display = 'none';
+    document.getElementById('ipadOelTestBestaetigen').disabled = false;
+    
+    showToast('Kompressor-Start abgebrochen', 'info');
+}
+
+function ipadOelTestBestaetigen() {
+    const form = document.getElementById('ipadOelTestForm');
+    const fueller = document.getElementById('ipadFueller').value.trim();
+    const oelTester = document.getElementById('ipadOelTester').value.trim();
+    const oelTestErgebnis = document.querySelector('input[name="ipadOelTestErgebnis"]:checked')?.value;
+    
+    // Validierung
+    if (!fueller) {
+        showToast('Bitte Füller-Namen eingeben!', 'warning');
+        document.getElementById('ipadFueller').focus();
+        return;
+    }
+    
+    if (!oelTester) {
+        showToast('Bitte Öl-Tester Namen eingeben!', 'warning');
+        document.getElementById('ipadOelTester').focus();
+        return;
+    }
+    
+    if (!oelTestErgebnis) {
+        showToast('Bitte Öl-Test Ergebnis auswählen!', 'warning');
+        return;
+    }
+    
+    // Bei NOK nicht starten
+    if (oelTestErgebnis === 'NOK') {
+        showToast('Kompressor kann nicht gestartet werden!\nÖl-Test NOK - erst Öl wechseln und erneut testen.', 'danger');
+        return;
+    }
+    
+    // Formular ausblenden
+    document.getElementById('ipad-oil-test-section').style.display = 'none';
+    
+    // Kompressor einschalten
+    startKompressorWithOelTest(fueller, oelTester, oelTestErgebnis);
+    
+    // Formular zurücksetzen für nächsten Gebrauch
+    document.getElementById('ipadOelTestForm').reset();
+}
+
+function ipadZeigeBestätigung() {
+    // Alle anderen Bereiche ausblenden
+    document.getElementById('ipad-oil-test-section').style.display = 'none';
+    
+    // Bestätigungs-Bereich einblenden
+    document.getElementById('ipad-confirmation-section').style.display = 'block';
+    
+    // Smooth Scroll zum Formular
+    document.getElementById('ipad-confirmation-section').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+    });
+}
+
+function ipadBestätigungAbbrechen() {
+    // Bestätigungs-Bereich ausblenden
+    document.getElementById('ipad-confirmation-section').style.display = 'none';
+    
+    showToast('Kompressor-Ausschalten abgebrochen', 'info');
+}
+
+function ipadKompressorAusschaltenBestätigen() {
+    // Bestätigungs-Bereich ausblenden
+    document.getElementById('ipad-confirmation-section').style.display = 'none';
+    
+    // Kompressor ausschalten
+    executeKompressorAusschalten();
+}
+
+// ============================================================================
+// TOAST-SYSTEM FÜR IPAD-FREUNDLICHE BENACHRICHTIGUNGEN
+// ============================================================================
+
+function showToast(message, type = 'info', duration = 5000) {
+    const toastContainer = document.getElementById('toast-container');
+    
+    // Toast ID für Duplikat-Prävention
+    const toastId = 'toast-' + Date.now();
+    
+    // Toast-Icon je nach Typ
+    let icon = '';
+    let bgClass = '';
+    
+    switch(type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle me-2"></i>';
+            bgClass = 'bg-success';
+            break;
+        case 'danger':
+        case 'error':
+            icon = '<i class="fas fa-exclamation-triangle me-2"></i>';
+            bgClass = 'bg-danger';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-circle me-2"></i>';
+            bgClass = 'bg-warning text-dark';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle me-2"></i>';
+            bgClass = 'bg-info';
+    }
+    
+    // Mehrzeilige Nachrichten handhaben
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    
+    // Toast HTML erstellen
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${icon}${formattedMessage}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    // Toast zum Container hinzufügen
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    // Toast initialisieren und anzeigen
+    const toastElement = document.getElementById(toastId);
+    const bsToast = new bootstrap.Toast(toastElement, {
+        delay: duration
+    });
+    
+    bsToast.show();
+    
+    // Toast nach dem Ausblenden aus DOM entfernen
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+    
+    // Rückgabe der Toast-Instanz für weitere Kontrolle
+    return bsToast;
+}
+
+// ============================================================================
+// PATRONENWECHSEL FUNKTIONEN
+// ============================================================================
+
+let currentPatronenwechselStatus = null;
+
+function updatePatronenwechselStatus(statusData) {
+    const countdownElement = document.getElementById('patronenwechsel-countdown');
+    const detailsElement = document.getElementById('patronenwechsel-details');
+    const statusDisplay = document.getElementById('patronenwechsel-status-display');
+    const letzterWechselElement = document.getElementById('letzter-patronenwechsel');
+    const patronenwechselInfoElement = document.getElementById('patronenwechsel-info');
+    
+    if (statusData.error) {
+        countdownElement.textContent = 'Fehler';
+        detailsElement.textContent = statusData.error;
+        statusDisplay.className = 'timer-large text-danger';
+        return;
+    }
+    
+    // Countdown und Status aktualisieren
+    countdownElement.textContent = statusData.countdown_text;
+    
+    // Status-Display Farbe je nach Status
+    if (statusData.wechsel_faellig) {
+        statusDisplay.className = 'timer-large text-danger';
+    } else if (statusData.warnung_aktiv) {
+        statusDisplay.className = 'timer-large text-warning';
+    } else {
+        statusDisplay.className = 'timer-large text-success';
+    }
+    
+    // Details aktualisieren
+    if (statusData.stunden_bis_wechsel !== undefined) {
+        detailsElement.textContent = `Nächster Wechsel in ${statusData.stunden_bis_wechsel.toFixed(1)}h`;
+    }
+    
+    // Letzter Wechsel Info
+    if (statusData.letzte_wechsel && statusData.letzte_wechsel.length > 0) {
+        const letzter = statusData.letzte_wechsel[0];
+        const wechselDatum = new Date(letzter.wechsel_datum);
+        letzterWechselElement.textContent = wechselDatum.toLocaleDateString('de-DE');
+        patronenwechselInfoElement.textContent = `Durchgeführt von: ${letzter.durchgefuehrt_von}`;
+    } else {
+        letzterWechselElement.textContent = 'Noch nie';
+        patronenwechselInfoElement.textContent = 'Kein Patronenwechsel dokumentiert';
+    }
+}
+
+// Patronenwechsel-Funktionen wurden zur Wartung verschoben
+// Verwende /maintenance/patrone-wechseln für Patronenwechsel
+
+// ============================================================================
+// LEGACY SUPPORT (Falls alte Routen noch existieren)
+// ============================================================================
+
+function startFuelling() {
+    showInfoMessage('Diese Funktion wurde durch die neue Kompressor-Steuerung ersetzt.\nBitte "KOMPRESSOR AN" verwenden.');
+}
+
+function stopFuelling() {
+    showInfoMessage('Diese Funktion wurde durch die neue Kompressor-Steuerung ersetzt.\nBitte "KOMPRESSOR AUS" verwenden.');
+}
+
+// ============================================================================
+// IPAD CSS-OPTIMIERUNGEN (INLINE STYLES)
+// ============================================================================
+
+// iPad-spezifische CSS-Regeln dynamisch hinzufügen
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        if (detectiPad()) {
+            const style = document.createElement('style');
+            style.textContent = `
+                /* iPad-spezifische Optimierungen */
+                .ipad-device .btn-touch {
+                    min-height: 44px;
+                    min-width: 44px;
+                    font-size: 1.1rem;
+                }
+                
+                .ipad-device .form-control-lg {
+                    font-size: 1.2rem;
+                    padding: 0.75rem 1rem;
+                }
+                
+                .ipad-device .btn-lg {
+                    min-height: 50px;
+                    font-size: 1.1rem;
+                    padding: 0.75rem 1.5rem;
+                }
+                
+                .ipad-device .touch-grid {
+                    gap: 1rem;
+                }
+                
+                .ipad-device .touch-grid .btn-touch {
+                    transition: transform 0.1s ease;
+                }
+                
+                .ipad-device .toast {
+                    min-width: 350px;
+                    font-size: 1.1rem;
+                }
+                
+                /* Touch-Feedback */
+                .ipad-device .btn:active {
+                    transform: scale(0.95);
+                }
+                
+                /* Bessere Lesbarkeit */
+                .ipad-device .timer-large {
+                    font-size: 2.5rem;
+                }
+                
+                .ipad-device .card {
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                }
+                
+                /* Scroll-Optimierung */
+                .ipad-device {
+                    -webkit-overflow-scrolling: touch;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    });
+}
+</script>
+{% endblock %}

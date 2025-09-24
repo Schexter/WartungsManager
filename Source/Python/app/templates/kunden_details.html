@@ -1,0 +1,1368 @@
+{% extends "base.html" %}
+
+{% block title %}Kunden-Details - WartungsManager{% endblock %}
+
+{% block content %}
+<!-- Kunden-Detail Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-5 mb-2">
+                    <i class="fas fa-user-circle me-3"></i><span id="kunde-vollname">Kunden-Details</span>
+                </h1>
+                <div class="text-muted">
+                    <span id="kunde-mitgliedsnummer" class="badge bg-primary fs-6"></span>
+                    <span id="kunde-status" class="badge bg-success fs-6 ms-2"></span>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="kundeBearbeiten()">
+                    <i class="fas fa-edit me-2"></i>Bearbeiten
+                </button>
+                <button class="btn btn-outline-info" onclick="exportiereKundenDaten()">
+                    <i class="fas fa-download me-2"></i>Export
+                </button>
+                <a href="/flaschen-annehmen" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kunden-Info Cards -->
+<div class="row mb-4">
+    <!-- Persönliche Daten -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-id-card me-2"></i>Persönliche Daten
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="kunde-persoenliche-daten">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Kontaktdaten -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-address-book me-2"></i>Kontaktdaten
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="kunde-kontaktdaten">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mitgliedschaft -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>Mitgliedschaft
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="kunde-mitgliedschaft">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken-Dashboard -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary text-center">
+            <div class="card-body">
+                <i class="fas fa-wine-bottle fa-3x text-primary mb-3"></i>
+                <h5>Gesamte Flaschen</h5>
+                <h2 class="text-primary" id="stat-total-flaschen">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-success text-center">
+            <div class="card-body">
+                <i class="fas fa-fill-drip fa-3x text-success mb-3"></i>
+                <h5>Füllungen gesamt</h5>
+                <h2 class="text-success" id="stat-total-fuellungen">0</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-warning text-center">
+            <div class="card-body">
+                <i class="fas fa-clock fa-3x text-warning mb-3"></i>
+                <h5>Letzte Füllung</h5>
+                <h2 class="text-warning" id="stat-letzte-fuellung">--</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-danger text-center">
+            <div class="card-body">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5>Prüfungen fällig</h5>
+                <h2 class="text-danger" id="stat-pruefungen-faellig">0</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs für verschiedene Ansichten -->
+<div class="row">
+    <div class="col-12">
+        <ul class="nav nav-tabs" id="kundenTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="flaschen-tab" data-bs-toggle="tab" data-bs-target="#flaschen-pane" type="button" role="tab">
+                    <i class="fas fa-wine-bottle me-2"></i>Flaschen (<span id="flaschen-count">0</span>)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="fuellhistorie-tab" data-bs-toggle="tab" data-bs-target="#fuellhistorie-pane" type="button" role="tab">
+                    <i class="fas fa-history me-2"></i>Füllhistorie (<span id="fuellhistorie-count">0</span>)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="wartungen-tab" data-bs-toggle="tab" data-bs-target="#wartungen-pane" type="button" role="tab">
+                    <i class="fas fa-tools me-2"></i>Wartungen & Prüfungen
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="notizen-tab" data-bs-toggle="tab" data-bs-target="#notizen-pane" type="button" role="tab">
+                    <i class="fas fa-sticky-note me-2"></i>Notizen & Dokumente
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content mt-3" id="kundenTabContent">
+            <!-- Flaschen Tab -->
+            <div class="tab-pane fade show active" id="flaschen-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-wine-bottle me-2"></i>Kunden-Flaschen
+                                </h5>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-success btn-sm me-2" onclick="neueFlasche()">
+                                    <i class="fas fa-plus me-1"></i>Neue Flasche
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" onclick="exportiereFlaschen()">
+                                    <i class="fas fa-file-excel me-1"></i>Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="flaschen-liste">
+                            <!-- Wird dynamisch geladen -->
+                            <div class="text-center p-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Flaschen werden geladen...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Füllhistorie Tab -->
+            <div class="tab-pane fade" id="fuellhistorie-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-history me-2"></i>Füllhistorie
+                                </h5>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="btn-group">
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="filterFuellhistorie('alle')">Alle</button>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="filterFuellhistorie('30')">30 Tage</button>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="filterFuellhistorie('90')">90 Tage</button>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="filterFuellhistorie('jahr')">1 Jahr</button>
+                                </div>
+                                <button class="btn btn-outline-info btn-sm ms-2" onclick="exportiereFuellhistorie()">
+                                    <i class="fas fa-file-pdf me-1"></i>Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="fuellhistorie-liste">
+                            <!-- Wird dynamisch geladen -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Wartungen Tab -->
+            <div class="tab-pane fade" id="wartungen-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-tools me-2"></i>Wartungen & Prüfungen
+                                </h5>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-warning btn-sm me-2" onclick="neueWartung()">
+                                    <i class="fas fa-plus me-1"></i>Wartung eintragen
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" onclick="exportiereWartungen()">
+                                    <i class="fas fa-file-pdf me-1"></i>Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Prüfungen-Übersicht -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h6 class="text-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Anstehende Prüfungen
+                                </h6>
+                                <div id="anstehende-pruefungen">
+                                    <!-- Wird dynamisch geladen -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Wartungshistorie -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <h6>
+                                    <i class="fas fa-history me-2"></i>Wartungshistorie
+                                </h6>
+                                <div id="wartungshistorie">
+                                    <!-- Wird dynamisch geladen -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notizen Tab -->
+            <div class="tab-pane fade" id="notizen-pane" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sticky-note me-2"></i>Notizen & Dokumente
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Notizen-Editor -->
+                        <div class="mb-4">
+                            <label for="kunde-notizen" class="form-label fw-bold">Notizen:</label>
+                            <textarea class="form-control" id="kunde-notizen" rows="5" placeholder="Notizen zum Kunden..."></textarea>
+                            <div class="mt-2">
+                                <button class="btn btn-success btn-sm" onclick="notizenSpeichern()">
+                                    <i class="fas fa-save me-1"></i>Speichern
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Dokumente -->
+                        <div class="mb-4">
+                            <h6>
+                                <i class="fas fa-paperclip me-2"></i>Angehängte Dokumente
+                            </h6>
+                            <div id="dokumente-liste">
+                                <!-- Wird dynamisch geladen -->
+                            </div>
+                            <div class="mt-2">
+                                <input type="file" class="form-control" id="dokument-upload" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <button class="btn btn-outline-primary btn-sm mt-2" onclick="dokumentHochladen()">
+                                    <i class="fas fa-upload me-1"></i>Dokument hinzufügen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flasche Bearbeiten Modal -->
+<div class="modal fade" id="flascheBearbeitenModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-wine-bottle me-2"></i>Flasche bearbeiten
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="flascheBearbeitenForm">
+                    <input type="hidden" id="edit-flasche-id">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-flasche-nummer" class="form-label">Interne Flaschennummer:</label>
+                                <input type="text" class="form-control" id="edit-flasche-nummer" required readonly>
+                                <div class="form-text">Wird automatisch generiert</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-externe-nummer" class="form-label">Externe Flaschennummer:</label>
+                                <input type="text" class="form-control" id="edit-externe-nummer" placeholder="Kundeneigene Nummer">
+                                <div class="form-text">Vom Kunden vergebene Nummer</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-flasche-barcode" class="form-label">Barcode/QR-Code:</label>
+                                <input type="text" class="form-control" id="edit-flasche-barcode">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-seriennummer" class="form-label">Seriennummer:</label>
+                                <input type="text" class="form-control" id="edit-seriennummer" placeholder="Hersteller-Seriennummer">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-bauart-zulassung" class="form-label">Bauart-Zulassung:</label>
+                                <input type="text" class="form-control" id="edit-bauart-zulassung" placeholder="z.B. UN DOT-3AA-2015">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-herstellungs-datum" class="form-label">Herstellungsdatum:</label>
+                                <input type="date" class="form-control" id="edit-herstellungs-datum">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit-flasche-groesse" class="form-label">Größe (Liter):</label>
+                                <select class="form-select" id="edit-flasche-groesse">
+                                    <option value="10">10 Liter</option>
+                                    <option value="11">11 Liter</option>
+                                    <option value="12">12 Liter</option>
+                                    <option value="15">15 Liter</option>
+                                    <option value="18">18 Liter</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit-flasche-typ" class="form-label">Typ:</label>
+                                <select class="form-select" id="edit-flasche-typ">
+                                    <option value="Standard">Standard</option>
+                                    <option value="Aluminium">Aluminium</option>
+                                    <option value="Carbon">Carbon</option>
+                                    <option value="Stahl">Stahl</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="edit-max-druck" class="form-label">Max. Druck (bar):</label>
+                                <input type="number" class="form-control" id="edit-max-druck" min="200" max="400" value="300">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-pruef-datum" class="form-label">Letztes Prüfdatum:</label>
+                                <input type="date" class="form-control" id="edit-pruef-datum">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-naechste-pruefung" class="form-label">Nächste Prüfung:</label>
+                                <input type="date" class="form-control" id="edit-naechste-pruefung">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="edit-flasche-notizen" class="form-label">Notizen:</label>
+                                <textarea class="form-control" id="edit-flasche-notizen" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="edit-flasche-aktiv">
+                        <label class="form-check-label" for="edit-flasche-aktiv">
+                            Flasche ist aktiv
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-success" onclick="flascheAktualisieren()">
+                    <i class="fas fa-save me-2"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Neue Wartung Modal -->
+<div class="modal fade" id="neueWartungModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-tools me-2"></i>Neue Wartung eintragen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="neueWartungForm">
+                    <div class="mb-3">
+                        <label for="wartung-flasche" class="form-label">Flasche:</label>
+                        <select class="form-select" id="wartung-flasche" required>
+                            <option value="">Flasche auswählen...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="wartung-typ" class="form-label">Wartungstyp:</label>
+                        <select class="form-select" id="wartung-typ" required>
+                            <option value="">Typ auswählen...</option>
+                            <option value="TÜV-Prüfung">TÜV-Prüfung</option>
+                            <option value="Sichtprüfung">Sichtprüfung</option>
+                            <option value="Ventil-Service">Ventil-Service</option>
+                            <option value="Reinigung">Reinigung</option>
+                            <option value="O2-Clean">O2-Clean</option>
+                            <option value="Reparatur">Reparatur</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="wartung-datum" class="form-label">Datum:</label>
+                        <input type="date" class="form-control" id="wartung-datum" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="wartung-beschreibung" class="form-label">Beschreibung:</label>
+                        <textarea class="form-control" id="wartung-beschreibung" rows="3" placeholder="Beschreibung der durchgeführten Arbeiten..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="wartung-kosten" class="form-label">Kosten (€):</label>
+                        <input type="number" class="form-control" id="wartung-kosten" step="0.01" min="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-success" onclick="wartungSpeichern()">
+                    <i class="fas fa-save me-2"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// KUNDEN-DETAIL JAVASCRIPT
+// ============================================================================
+
+let aktuellerKunde = null;
+let kundenFlaschen = [];
+let fuellhistorie = [];
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const kundeId = urlParams.get('kunde_id');
+    
+    if (kundeId) {
+        kundenDetailsLaden(kundeId);
+    } else {
+        showErrorMessage('Keine Kunden-ID angegeben!');
+        window.location.href = '/flaschen-annehmen';
+    }
+    
+    // Tab-Events
+    document.addEventListener('shown.bs.tab', function (event) {
+        const targetTab = event.target.getAttribute('data-bs-target');
+        
+        if (targetTab === '#fuellhistorie-pane') {
+            fuellhistorieLaden();
+        } else if (targetTab === '#wartungen-pane') {
+            wartungenLaden();
+        }
+    });
+});
+
+// ============================================================================
+// KUNDEN-DATEN LADEN
+// ============================================================================
+
+async function kundenDetailsLaden(kundeId) {
+    try {
+        // Kunden-Basisdaten laden
+        const kundeResponse = await fetch(`/api/kunden/${kundeId}`);
+        const kundeResult = await kundeResponse.json();
+        
+        if (!kundeResult.kunde) {
+            showErrorMessage('Kunde nicht gefunden!');
+            return;
+        }
+        
+        aktuellerKunde = kundeResult.kunde;
+        
+        // UI aktualisieren
+        renderKundenDetails();
+        
+        // Flaschen laden
+        await flaschenLaden();
+        
+        // Statistiken laden
+        await statistikenLaden();
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Kundendaten:', error);
+        showErrorMessage('Fehler beim Laden der Kundendaten');
+    }
+}
+
+function renderKundenDetails() {
+    // Header
+    document.getElementById('kunde-vollname').textContent = `${aktuellerKunde.vorname} ${aktuellerKunde.nachname || ''}`;
+    document.getElementById('kunde-mitgliedsnummer').textContent = `Mitglied: ${aktuellerKunde.mitgliedsnummer}`;
+    document.getElementById('kunde-status').textContent = aktuellerKunde.ist_aktiv ? 'Aktiv' : 'Inaktiv';
+    document.getElementById('kunde-status').className = `badge fs-6 ms-2 ${aktuellerKunde.ist_aktiv ? 'bg-success' : 'bg-secondary'}`;
+    
+    // Persönliche Daten
+    const persoenlicheData = `
+        <div class="mb-3">
+            <strong><i class="fas fa-user me-2"></i>Name:</strong><br>
+            ${aktuellerKunde.vorname} ${aktuellerKunde.nachname || ''}
+        </div>
+        ${aktuellerKunde.firma ? `
+        <div class="mb-3">
+            <strong><i class="fas fa-building me-2"></i>Firma:</strong><br>
+            ${aktuellerKunde.firma}
+        </div>
+        ` : ''}
+        ${aktuellerKunde.externe_kundennummer ? `
+        <div class="mb-3">
+            <strong><i class="fas fa-id-card me-2"></i>Externe Nummer:</strong><br>
+            ${aktuellerKunde.externe_kundennummer}
+            ${aktuellerKunde.externe_system ? `<br><small class="text-muted">${aktuellerKunde.externe_system}</small>` : ''}
+        </div>
+        ` : ''}
+    `;
+    document.getElementById('kunde-persoenliche-daten').innerHTML = persoenlicheData;
+    
+    // Kontaktdaten
+    const kontaktData = `
+        ${aktuellerKunde.telefon ? `
+        <div class="mb-3">
+            <strong><i class="fas fa-phone me-2"></i>Telefon:</strong><br>
+            <a href="tel:${aktuellerKunde.telefon}">${aktuellerKunde.telefon}</a>
+        </div>
+        ` : ''}
+        ${aktuellerKunde.email ? `
+        <div class="mb-3">
+            <strong><i class="fas fa-envelope me-2"></i>E-Mail:</strong><br>
+            <a href="mailto:${aktuellerKunde.email}">${aktuellerKunde.email}</a>
+        </div>
+        ` : ''}
+        ${aktuellerKunde.adresse ? `
+        <div class="mb-3">
+            <strong><i class="fas fa-map-marker-alt me-2"></i>Adresse:</strong><br>
+            ${aktuellerKunde.adresse.replace(/\n/g, '<br>')}
+        </div>
+        ` : ''}
+        ${!aktuellerKunde.telefon && !aktuellerKunde.email && !aktuellerKunde.adresse ? 
+        '<p class="text-muted"><i class="fas fa-info-circle me-2"></i>Keine Kontaktdaten hinterlegt</p>' : ''}
+    `;
+    document.getElementById('kunde-kontaktdaten').innerHTML = kontaktData;
+    
+    // Mitgliedschaftsdaten
+    const mitgliedschaftData = `
+        <div class="mb-3">
+            <strong><i class="fas fa-calendar-plus me-2"></i>Mitglied seit:</strong><br>
+            ${aktuellerKunde.mitglied_seit ? new Date(aktuellerKunde.mitglied_seit).toLocaleDateString('de-DE') : 'Unbekannt'}
+        </div>
+        <div class="mb-3">
+            <strong><i class="fas fa-crown me-2"></i>Mitgliedschaftstyp:</strong><br>
+            <span class="badge bg-primary">${aktuellerKunde.mitgliedschaft_typ || 'Standard'}</span>
+        </div>
+        <div class="mb-3">
+            <strong><i class="fas fa-calendar-check me-2"></i>Erstellt am:</strong><br>
+            ${aktuellerKunde.erstellt_am ? new Date(aktuellerKunde.erstellt_am).toLocaleDateString('de-DE') : 'Unbekannt'}
+        </div>
+    `;
+    document.getElementById('kunde-mitgliedschaft').innerHTML = mitgliedschaftData;
+    
+    // Notizen
+    document.getElementById('kunde-notizen').value = aktuellerKunde.notizen || '';
+}
+
+// ============================================================================
+// FLASCHEN MANAGEMENT
+// ============================================================================
+
+async function flaschenLaden() {
+    try {
+        const response = await fetch(`/api/kunden/${aktuellerKunde.id}/flaschen`);
+        const result = await response.json();
+        
+        if (result.success) {
+            kundenFlaschen = result.flaschen;
+            renderFlaschen();
+            document.getElementById('flaschen-count').textContent = kundenFlaschen.length;
+        } else {
+            console.error('Fehler beim Laden der Flaschen:', result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Flaschen:', error);
+        document.getElementById('flaschen-liste').innerHTML = 
+            '<div class="text-danger text-center p-4">Fehler beim Laden der Flaschen</div>';
+    }
+}
+
+function renderFlaschen() {
+    const container = document.getElementById('flaschen-liste');
+    
+    if (kundenFlaschen.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-wine-bottle fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Keine Flaschen registriert</h5>
+                <p class="text-muted">Dieser Kunde hat noch keine Flaschen</p>
+                <button class="btn btn-primary" onclick="neueFlasche()">
+                    <i class="fas fa-plus me-2"></i>Erste Flasche hinzufügen
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += `
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="fas fa-wine-bottle me-1"></i>Flasche</th>
+                    <th><i class="fas fa-barcode me-1"></i>Barcode</th>
+                    <th><i class="fas fa-ruler me-1"></i>Größe</th>
+                    <th><i class="fas fa-cog me-1"></i>Typ</th>
+                    <th><i class="fas fa-gauge me-1"></i>Max. Druck</th>
+                    <th><i class="fas fa-calendar-check me-1"></i>Nächste Prüfung</th>
+                    <th><i class="fas fa-info-circle me-1"></i>Status</th>
+                    <th><i class="fas fa-tools me-1"></i>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    kundenFlaschen.forEach(flasche => {
+        const pruefungFaellig = flasche.pruefung_faellig;
+        const pruefungStatusClass = pruefungFaellig ? 'text-danger' : 'text-success';
+        const pruefungIcon = pruefungFaellig ? 'fas fa-exclamation-triangle' : 'fas fa-check-circle';
+        const pruefungText = flasche.naechste_pruefung ? 
+            new Date(flasche.naechste_pruefung).toLocaleDateString('de-DE') : 'Nicht gesetzt';
+        
+        const statusBadge = flasche.ist_aktiv ? 
+            '<span class="badge bg-success">Aktiv</span>' : 
+            '<span class="badge bg-secondary">Inaktiv</span>';
+        
+        html += `
+            <tr>
+                <td>
+                    <strong>${flasche.flasche_nummer}</strong>
+                    ${flasche.externe_flasche_nummer ? `<br><small class="text-info">Ext: ${flasche.externe_flasche_nummer}</small>` : ''}
+                    ${flasche.seriennummer ? `<br><small class="text-muted">SN: ${flasche.seriennummer}</small>` : ''}
+                </td>
+                <td>
+                    ${flasche.barcode || '<span class="text-muted">-</span>'}
+                </td>
+                <td>
+                    ${flasche.groesse_liter} L
+                </td>
+                <td>
+                    ${flasche.flaschen_typ || 'Standard'}
+                </td>
+                <td>
+                    ${flasche.max_druck_bar} bar
+                </td>
+                <td>
+                    <span class="${pruefungStatusClass}">
+                        <i class="${pruefungIcon} me-1"></i>${pruefungText}
+                    </span>
+                    ${pruefungFaellig ? '<br><small class="text-danger">Prüfung fällig!</small>' : ''}
+                </td>
+                <td>
+                    ${statusBadge}
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="flascheBearbeiten(${flasche.id})" title="Bearbeiten">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-success" onclick="flascheZurWarteliste(${flasche.id})" title="Zur Füllliste hinzufügen">
+                            <i class="fas fa-fill-drip"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="flaschenhistorie(${flasche.id})" title="Historie">
+                            <i class="fas fa-history"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// FÜLLHISTORIE
+// ============================================================================
+
+async function fuellhistorieLaden(filter = 'alle') {
+    try {
+        let url = `/api/kunden/${aktuellerKunde.id}/fuellhistorie`;
+        if (filter !== 'alle') {
+            url += `?filter=${filter}`;
+        }
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.success) {
+            fuellhistorie = result.fuellhistorie;
+            renderFuellhistorie();
+            document.getElementById('fuellhistorie-count').textContent = fuellhistorie.length;
+        } else {
+            console.error('Fehler beim Laden der Füllhistorie:', result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Füllhistorie:', error);
+        document.getElementById('fuellhistorie-liste').innerHTML = 
+            '<div class="text-danger text-center p-4">Fehler beim Laden der Füllhistorie</div>';
+    }
+}
+
+function renderFuellhistorie() {
+    const container = document.getElementById('fuellhistorie-liste');
+    
+    if (fuellhistorie.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Keine Füllhistorie vorhanden</h5>
+                <p class="text-muted">Für diesen Kunden wurden noch keine Füllungen durchgeführt</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += `
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="fas fa-calendar me-1"></i>Datum</th>
+                    <th><i class="fas fa-wine-bottle me-1"></i>Flasche</th>
+                    <th><i class="fas fa-gauge me-1"></i>Druck</th>
+                    <th><i class="fas fa-flask me-1"></i>Gasgemisch</th>
+                    <th><i class="fas fa-user me-1"></i>Bearbeiter</th>
+                    <th><i class="fas fa-comment me-1"></i>Notizen</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    fuellhistorie.forEach(fuellung => {
+        const datum = new Date(fuellung.gefuellt_am).toLocaleDateString('de-DE', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        html += `
+            <tr>
+                <td>${datum}</td>
+                <td>
+                    <strong>${fuellung.flasche_nummer}</strong>
+                    <br><small class="text-muted">${fuellung.flasche_groesse} L</small>
+                </td>
+                <td>
+                    <span class="badge bg-primary">${fuellung.end_druck} bar</span>
+                </td>
+                <td>
+                    ${fuellung.gasgemisch || '<span class="text-muted">Standard</span>'}
+                </td>
+                <td>
+                    ${fuellung.bearbeiter || '<span class="text-muted">System</span>'}
+                </td>
+                <td>
+                    ${fuellung.notizen || '<span class="text-muted">-</span>'}
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function filterFuellhistorie(filter) {
+    fuellhistorieLaden(filter);
+    
+    // Button-Status aktualisieren
+    document.querySelectorAll('[onclick*="filterFuellhistorie"]').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+    
+    event.target.classList.remove('btn-outline-primary');
+    event.target.classList.add('btn-primary');
+}
+
+// ============================================================================
+// WARTUNGEN
+// ============================================================================
+
+async function wartungenLaden() {
+    try {
+        const response = await fetch(`/api/kunden/${aktuellerKunde.id}/wartungen`);
+        const result = await response.json();
+        
+        if (result.success) {
+            renderWartungen(result.wartungen);
+            renderAnstehendePruefungen(result.anstehende_pruefungen);
+        } else {
+            console.error('Fehler beim Laden der Wartungen:', result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Wartungen:', error);
+    }
+}
+
+function renderAnstehendePruefungen(pruefungen) {
+    const container = document.getElementById('anstehende-pruefungen');
+    
+    if (pruefungen.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>Alle Prüfungen sind aktuell!
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    pruefungen.forEach(pruefung => {
+        const tageUeberfaellig = pruefung.tage_ueberfaellig;
+        const alertClass = tageUeberfaellig > 0 ? 'alert-danger' : 'alert-warning';
+        const status = tageUeberfaellig > 0 ? `${tageUeberfaellig} Tage überfällig` : `Fällig in ${Math.abs(tageUeberfaellig)} Tagen`;
+        
+        html += `
+            <div class="alert ${alertClass}">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <strong>Flasche ${pruefung.flasche_nummer}</strong><br>
+                        <small>Nächste Prüfung: ${new Date(pruefung.naechste_pruefung).toLocaleDateString('de-DE')}</small><br>
+                        <small class="text-muted">${status}</small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-warning btn-sm" onclick="wartungEintragen(${pruefung.flasche_id})">
+                            <i class="fas fa-tools me-1"></i>Wartung eintragen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderWartungen(wartungen) {
+    const container = document.getElementById('wartungshistorie');
+    
+    if (wartungen.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-tools fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Keine Wartungen dokumentiert</h5>
+                <p class="text-muted">Für diesen Kunden wurden noch keine Wartungen eingetragen</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += `
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="fas fa-calendar me-1"></i>Datum</th>
+                    <th><i class="fas fa-wine-bottle me-1"></i>Flasche</th>
+                    <th><i class="fas fa-tools me-1"></i>Typ</th>
+                    <th><i class="fas fa-comment me-1"></i>Beschreibung</th>
+                    <th><i class="fas fa-euro-sign me-1"></i>Kosten</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    wartungen.forEach(wartung => {
+        const datum = new Date(wartung.datum).toLocaleDateString('de-DE');
+        
+        html += `
+            <tr>
+                <td>${datum}</td>
+                <td><strong>${wartung.flasche_nummer}</strong></td>
+                <td>
+                    <span class="badge bg-secondary">${wartung.typ}</span>
+                </td>
+                <td>${wartung.beschreibung || '<span class="text-muted">-</span>'}</td>
+                <td>
+                    ${wartung.kosten ? `${wartung.kosten.toFixed(2)} €` : '<span class="text-muted">-</span>'}
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// ============================================================================
+// STATISTIKEN
+// ============================================================================
+
+async function statistikenLaden() {
+    try {
+        const response = await fetch(`/api/kunden/${aktuellerKunde.id}/statistiken`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.statistiken;
+            
+            document.getElementById('stat-total-flaschen').textContent = stats.total_flaschen;
+            document.getElementById('stat-total-fuellungen').textContent = stats.total_fuellungen;
+            document.getElementById('stat-pruefungen-faellig').textContent = stats.pruefungen_faellig;
+            
+            const letztesFuellungsDatum = stats.letzte_fuellung ? 
+                new Date(stats.letzte_fuellung).toLocaleDateString('de-DE', { month: 'short', day: 'numeric' }) : '--';
+            document.getElementById('stat-letzte-fuellung').textContent = letztesFuellungsDatum;
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Statistiken:', error);
+    }
+}
+
+// ============================================================================
+// MODAL FUNKTIONEN
+// ============================================================================
+
+function flascheBearbeiten(flascheId) {
+    const flasche = kundenFlaschen.find(f => f.id === flascheId);
+    if (!flasche) return;
+    
+    // Formular füllen
+    document.getElementById('edit-flasche-id').value = flasche.id;
+    document.getElementById('edit-flasche-nummer').value = flasche.flasche_nummer;
+    document.getElementById('edit-externe-nummer').value = flasche.externe_flasche_nummer || '';
+    document.getElementById('edit-flasche-barcode').value = flasche.barcode || '';
+    document.getElementById('edit-seriennummer').value = flasche.seriennummer || '';
+    document.getElementById('edit-bauart-zulassung').value = flasche.bauart_zulassung || '';
+    document.getElementById('edit-flasche-groesse').value = flasche.groesse_liter;
+    document.getElementById('edit-flasche-typ').value = flasche.flaschen_typ || 'Standard';
+    document.getElementById('edit-max-druck').value = flasche.max_druck_bar;
+    document.getElementById('edit-flasche-notizen').value = flasche.notizen || '';
+    document.getElementById('edit-flasche-aktiv').checked = flasche.ist_aktiv;
+    
+    if (flasche.herstellungs_datum) {
+        document.getElementById('edit-herstellungs-datum').value = flasche.herstellungs_datum;
+    }
+    if (flasche.pruef_datum) {
+        document.getElementById('edit-pruef-datum').value = flasche.pruef_datum;
+    }
+    if (flasche.naechste_pruefung) {
+        document.getElementById('edit-naechste-pruefung').value = flasche.naechste_pruefung;
+    }
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('flascheBearbeitenModal'));
+    modal.show();
+}
+
+async function flascheAktualisieren() {
+    const flascheId = document.getElementById('edit-flasche-id').value;
+    
+    const updateData = {
+        flasche_nummer: document.getElementById('edit-flasche-nummer').value,
+        barcode: document.getElementById('edit-flasche-barcode').value || null,
+        groesse_liter: parseFloat(document.getElementById('edit-flasche-groesse').value),
+        flaschen_typ: document.getElementById('edit-flasche-typ').value,
+        max_druck_bar: parseInt(document.getElementById('edit-max-druck').value),
+        notizen: document.getElementById('edit-flasche-notizen').value || null,
+        ist_aktiv: document.getElementById('edit-flasche-aktiv').checked,
+        pruef_datum: document.getElementById('edit-pruef-datum').value || null,
+        naechste_pruefung: document.getElementById('edit-naechste-pruefung').value || null
+    };
+    
+    try {
+        const response = await fetch(`/api/flaschen/${flascheId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Flasche erfolgreich aktualisiert!');
+            
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('flascheBearbeitenModal'));
+            modal.hide();
+            
+            // Daten neu laden
+            await flaschenLaden();
+            await statistikenLaden();
+        } else {
+            showErrorMessage('Fehler beim Aktualisieren: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Aktualisieren der Flasche:', error);
+        showErrorMessage('Netzwerkfehler beim Aktualisieren');
+    }
+}
+
+function neueFlasche() {
+    // Zum neuen vereinfachten Interface weiterleiten
+    window.location.href = '/flasche-hinzufuegen?kunde_id=' + aktuellerKunde.id;
+}
+
+function neueWartung() {
+    // Flaschen für Auswahl laden
+    const flaschenSelect = document.getElementById('wartung-flasche');
+    flaschenSelect.innerHTML = '<option value="">Flasche auswählen...</option>';
+    
+    kundenFlaschen.forEach(flasche => {
+        flaschenSelect.innerHTML += `<option value="${flasche.id}">${flasche.flasche_nummer} (${flasche.groesse_liter}L)</option>`;
+    });
+    
+    // Aktuelles Datum setzen
+    document.getElementById('wartung-datum').value = new Date().toISOString().split('T')[0];
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('neueWartungModal'));
+    modal.show();
+}
+
+async function wartungSpeichern() {
+    const formData = {
+        flasche_id: parseInt(document.getElementById('wartung-flasche').value),
+        typ: document.getElementById('wartung-typ').value,
+        datum: document.getElementById('wartung-datum').value,
+        beschreibung: document.getElementById('wartung-beschreibung').value,
+        kosten: parseFloat(document.getElementById('wartung-kosten').value) || null
+    };
+    
+    if (!formData.flasche_id || !formData.typ || !formData.datum) {
+        showErrorMessage('Bitte füllen Sie alle Pflichtfelder aus!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/wartungen/erstellen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Wartung erfolgreich eingetragen!');
+            
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('neueWartungModal'));
+            modal.hide();
+            
+            // Formular zurücksetzen
+            document.getElementById('neueWartungForm').reset();
+            
+            // Wartungen neu laden
+            await wartungenLaden();
+            await statistikenLaden();
+        } else {
+            showErrorMessage('Fehler beim Speichern: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Speichern der Wartung:', error);
+        showErrorMessage('Netzwerkfehler beim Speichern');
+    }
+}
+
+// ============================================================================
+// EXPORT FUNKTIONEN
+// ============================================================================
+
+function exportiereKundenDaten() {
+    const exportUrl = `/api/kunden/${aktuellerKunde.id}/export`;
+    window.open(exportUrl, '_blank');
+}
+
+function exportiereFlaschen() {
+    const exportUrl = `/api/kunden/${aktuellerKunde.id}/flaschen/export`;
+    window.open(exportUrl, '_blank');
+}
+
+function exportiereFuellhistorie() {
+    const exportUrl = `/api/kunden/${aktuellerKunde.id}/fuellhistorie/export`;
+    window.open(exportUrl, '_blank');
+}
+
+function exportiereWartungen() {
+    const exportUrl = `/api/kunden/${aktuellerKunde.id}/wartungen/export`;
+    window.open(exportUrl, '_blank');
+}
+
+// ============================================================================
+// WEITERE FUNKTIONEN
+// ============================================================================
+
+async function notizenSpeichern() {
+    const notizen = document.getElementById('kunde-notizen').value;
+    
+    try {
+        const response = await fetch(`/api/kunden/${aktuellerKunde.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                notizen: notizen
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage('Notizen gespeichert!');
+            aktuellerKunde.notizen = notizen;
+        } else {
+            showErrorMessage('Fehler beim Speichern: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Speichern der Notizen:', error);
+        showErrorMessage('Netzwerkfehler beim Speichern');
+    }
+}
+
+async function flascheZurWarteliste(flascheId) {
+    // Flasche finden
+    const flasche = kundenFlaschen.find(f => f.id === flascheId);
+    if (!flasche) {
+        showErrorMessage('Flasche nicht gefunden!');
+        return;
+    }
+    
+    // Zum Flaschen-Annahme-Formular weiterleiten mit vorausgefüllten Daten
+    const params = new URLSearchParams({
+        kunde_id: aktuellerKunde.id,
+        flasche_id: flascheId,
+        action: 'add_to_filllist',
+        // Vorausgefüllte Daten
+        vorname: aktuellerKunde.vorname,
+        nachname: aktuellerKunde.nachname || '',
+        mitgliedsnummer: aktuellerKunde.mitgliedsnummer,
+        firma: aktuellerKunde.firma || '',
+        telefon: aktuellerKunde.telefon || '',
+        email: aktuellerKunde.email || '',
+        // Flaschendaten
+        flasche_nummer: flasche.flasche_nummer,
+        externe_nummer: flasche.externe_flasche_nummer || '',
+        barcode: flasche.barcode || '',
+        seriennummer: flasche.seriennummer || '',
+        bauart_zulassung: flasche.bauart_zulassung || '',
+        groesse_liter: flasche.groesse_liter,
+        flaschen_typ: flasche.flaschen_typ || 'Standard',
+        max_druck: flasche.max_druck_bar,
+        hersteller: flasche.hersteller || '',
+        farbe: flasche.farbe || '',
+        herstellungs_datum: flasche.herstellungs_datum || '',
+        pruef_datum: flasche.pruef_datum || '',
+        naechste_pruefung: flasche.naechste_pruefung || ''
+    });
+    
+    // Zum Flaschen-Annahme-Formular weiterleiten
+    window.location.href = '/flaschen-annehmen?' + params.toString();
+}
+
+function flaschenhistorie(flascheId) {
+    // Zur Füllhistorie-Tab wechseln und filtern
+    const fuellhistorieTab = new bootstrap.Tab(document.getElementById('fuellhistorie-tab'));
+    fuellhistorieTab.show();
+    
+    // TODO: Nach spezifischer Flasche filtern
+    fuellhistorieLaden();
+}
+
+function kundeBearbeiten() {
+    // TODO: Kunden-Bearbeiten Modal implementieren
+    showInfoMessage('Kunden-Bearbeitung wird implementiert...');
+}
+
+function wartungEintragen(flascheId) {
+    // Wartung für spezifische Flasche eintragen
+    const flaschenSelect = document.getElementById('wartung-flasche');
+    flaschenSelect.innerHTML = '<option value="">Flasche auswählen...</option>';
+    
+    kundenFlaschen.forEach(flasche => {
+        const selected = flasche.id === flascheId ? 'selected' : '';
+        flaschenSelect.innerHTML += `<option value="${flasche.id}" ${selected}>${flasche.flasche_nummer} (${flasche.groesse_liter}L)</option>`;
+    });
+    
+    // Aktuelles Datum setzen
+    document.getElementById('wartung-datum').value = new Date().toISOString().split('T')[0];
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('neueWartungModal'));
+    modal.show();
+}
+
+// ============================================================================
+// TOAST-SYSTEM (gekürzt aus flaschen_annehmen.html)
+// ============================================================================
+
+function showToast(message, type = 'info', duration = 5000) {
+    const toastContainer = document.getElementById('toast-container');
+    const toastId = 'toast-' + Date.now();
+    
+    let icon = '';
+    let bgClass = '';
+    
+    switch(type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle me-2"></i>';
+            bgClass = 'bg-success';
+            break;
+        case 'danger':
+        case 'error':
+            icon = '<i class="fas fa-exclamation-triangle me-2"></i>';
+            bgClass = 'bg-danger';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-circle me-2"></i>';
+            bgClass = 'bg-warning text-dark';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle me-2"></i>';
+            bgClass = 'bg-info';
+    }
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${icon}${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const bsToast = new bootstrap.Toast(toastElement, { delay: duration });
+    
+    bsToast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+    
+    return bsToast;
+}
+
+function showSuccessMessage(message) {
+    showToast(message, 'success');
+}
+
+function showErrorMessage(message) {
+    showToast(message, 'error');
+}
+
+function showInfoMessage(message) {
+    showToast(message, 'info');
+}
+
+function showWarningMessage(message) {
+    showToast(message, 'warning');
+}
+</script>
+{% endblock %}

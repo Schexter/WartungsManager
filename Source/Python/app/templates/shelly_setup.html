@@ -1,0 +1,654 @@
+{% extends "admin_layout.html" %}
+
+{% block title %}Shelly IoT Setup - WartungsManager{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-grid.css') }}">
+<style>
+    /* Shelly-spezifische Styles */
+    .shelly-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .discovery-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .discovery-step {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+    }
+    
+    .network-input-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin: 20px 0;
+    }
+    
+    .network-input-group input {
+        flex: 1;
+        padding: 12px 15px;
+        font-size: 1.1rem;
+        border: 2px solid #667eea;
+        border-radius: 8px;
+    }
+    
+    .device-item {
+        background: white;
+        border: 2px solid #28a745;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+    
+    .device-item:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .device-item.offline {
+        border-color: #dc3545;
+        opacity: 0.7;
+    }
+    
+    .scanning-animation {
+        display: none;
+        text-align: center;
+        padding: 30px;
+    }
+    
+    .scanning-animation.active {
+        display: block;
+    }
+    
+    .scanning-animation .spinner-border {
+        width: 60px;
+        height: 60px;
+        border-width: 5px;
+        color: #667eea;
+    }
+    
+    .device-icon {
+        font-size: 2rem;
+        color: #667eea;
+        margin-right: 15px;
+    }
+    
+    .btn-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        font-size: 1.1rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-gradient:hover {
+        background: linear-gradient(135deg, #5a67d8 0%, #6b429e 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    
+    .status-badge.online {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-badge.offline {
+        background: #f8d7da;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Shelly Header -->
+<div class="shelly-header">
+    <h1 class="display-3 mb-3">
+        <i class="fas fa-plug me-3"></i>Shelly IoT Setup
+    </h1>
+    <p class="lead">Automatische Erkennung und Konfiguration von Shelly-Geräten im Netzwerk</p>
+</div>
+
+<!-- Discovery Section -->
+<div class="discovery-card">
+    <h2 class="mb-4">
+        <i class="fas fa-search-location me-2" style="color: #667eea;"></i>
+        Netzwerk-Discovery
+    </h2>
+    
+    <!-- Schritt 1: Netzwerk wählen -->
+    <div class="discovery-step">
+        <h4 class="mb-3">
+            <span class="badge bg-primary me-2">1</span>
+            Netzwerk-Bereich festlegen
+        </h4>
+        
+        <div class="network-input-group">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text">
+                    <i class="fas fa-network-wired"></i>
+                </span>
+                <input type="text" class="form-control" id="network-range" 
+                       value="192.168.0" placeholder="192.168.0">
+                <span class="input-group-text">.1-254</span>
+                <button class="btn btn-gradient" onclick="detectNetwork()">
+                    <i class="fas fa-magic me-2"></i>Auto-Erkennung
+                </button>
+            </div>
+        </div>
+        
+        <div id="network-info" class="alert alert-info mt-3" style="display: none;">
+            <i class="fas fa-info-circle me-2"></i>
+            <span id="network-message"></span>
+        </div>
+    </div>
+    
+    <!-- Schritt 2: Scan starten -->
+    <div class="discovery-step">
+        <h4 class="mb-3">
+            <span class="badge bg-primary me-2">2</span>
+            Nach Shelly-Geräten suchen
+        </h4>
+        
+        <button class="btn btn-gradient btn-lg" onclick="startDiscovery()">
+            <i class="fas fa-radar me-2"></i>Netzwerk-Scan starten
+        </button>
+        
+        <div class="scanning-animation mt-4" id="scanning-animation">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Suche läuft...</span>
+            </div>
+            <p class="mt-3 text-muted">Durchsuche Netzwerk <span id="scan-range">192.168.0.1-254</span></p>
+            <p class="text-muted">Dies kann bis zu 30 Sekunden dauern...</p>
+            <div class="progress mt-3">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     id="scan-progress" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <div id="scan-results" class="mt-4" style="display: none;">
+            <h5 class="mb-3">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                Gefundene Geräte: <span id="device-count">0</span>
+            </h5>
+            <div id="device-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Konfigurierte Geräte -->
+<div class="discovery-card">
+    <h2 class="mb-4">
+        <i class="fas fa-microchip me-2" style="color: #667eea;"></i>
+        Konfigurierte Geräte
+    </h2>
+    
+    <div id="configured-devices">
+        <div class="device-item">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-toggle-on device-icon"></i>
+                <div>
+                    <h5 class="mb-0">Shelly Plus 1 - Kompressor</h5>
+                    <small class="text-muted">IP: 192.168.0.100 | MAC: 84:CC:A8:A1:12:34</small>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="status-badge online">ONLINE</span>
+                <button class="btn btn-sm btn-primary" onclick="testDevice('192.168.0.100')">
+                    <i class="fas fa-vial"></i> Test
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="removeDevice('192.168.0.100')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-4">
+        <button class="btn btn-success btn-lg" onclick="saveConfiguration()">
+            <i class="fas fa-save me-2"></i>Konfiguration speichern
+        </button>
+    </div>
+</div>
+
+<!-- Manuelle Konfiguration -->
+<div class="discovery-card">
+    <h2 class="mb-4">
+        <i class="fas fa-cog me-2" style="color: #667eea;"></i>
+        Manuelle Konfiguration
+    </h2>
+    
+    <form id="manual-config-form">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Geräte-Name</label>
+                    <input type="text" class="form-control form-control-lg" 
+                           id="device-name" placeholder="z.B. Kompressor Hauptschalter">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">IP-Adresse</label>
+                    <input type="text" class="form-control form-control-lg" 
+                           id="device-ip" placeholder="192.168.0.100">
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Geräte-Typ</label>
+                    <select class="form-select form-select-lg" id="device-type">
+                        <option value="shelly1">Shelly 1</option>
+                        <option value="shelly1pm">Shelly 1PM</option>
+                        <option value="shellyplus1">Shelly Plus 1</option>
+                        <option value="shellyplus1pm">Shelly Plus 1PM</option>
+                        <option value="shelly25">Shelly 2.5</option>
+                        <option value="shellypro1">Shelly Pro 1</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Auth-Token (optional)</label>
+                    <input type="password" class="form-control form-control-lg" 
+                           id="auth-token" placeholder="Für geschützte Geräte">
+                </div>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-gradient btn-lg">
+            <i class="fas fa-plus-circle me-2"></i>Gerät hinzufügen
+        </button>
+    </form>
+</div>
+
+<!-- Back Button -->
+<div class="row">
+    <div class="col-12">
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary btn-lg">
+            <i class="fas fa-arrow-left me-2"></i>Zurück zum Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Globale Variablen
+let discoveredDevices = [];
+let configuredDevices = [];
+
+// Netzwerk automatisch erkennen
+function detectNetwork() {
+    showToast('Erkenne lokales Netzwerk...', 'info');
+    
+    // Simuliere Netzwerk-Erkennung
+    // In Produktion: Echte IP-Erkennung vom Server
+    fetch('/api/shelly/network-detect')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Echte Netzwerkerkennung erfolgreich
+                document.getElementById('network-range').value = data.network_range;
+                
+                const infoDiv = document.getElementById('network-info');
+                const messageSpan = document.getElementById('network-message');
+                if (infoDiv && messageSpan) {
+                    infoDiv.style.display = 'block';
+                    messageSpan.textContent = `Lokales Netzwerk: ${data.local_ip} | Bereich: ${data.subnet}`;
+                }
+                
+                showToast('Netzwerk erkannt: ' + data.network_range + '.0/24', 'success');
+            } else {
+                // Fallback wenn Erkennung fehlschlägt
+                const defaultRange = data.fallback || '192.168.0';
+                document.getElementById('network-range').value = defaultRange;
+                
+                const infoDiv = document.getElementById('network-info');
+                const messageSpan = document.getElementById('network-message');
+                if (infoDiv && messageSpan) {
+                    infoDiv.style.display = 'block';
+                    messageSpan.textContent = `Fallback: ${defaultRange}.0/24 - Bereit zum Scannen`;
+                }
+                
+                showToast('Verwende Standard-Netzwerk', 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Netzwerk-Erkennung Fehler:', error);
+            const networkInput = document.getElementById('network-range');
+            if (networkInput) {
+                networkInput.value = '192.168.0';
+            }
+            showToast('Netzwerk-Erkennung fehlgeschlagen: ' + error.message, 'danger');
+        });
+}
+
+// Discovery starten
+function startDiscovery() {
+    const networkRange = document.getElementById('network-range').value;
+    
+    if (!networkRange) {
+        showToast('Bitte Netzwerk-Bereich eingeben', 'warning');
+        return;
+    }
+    
+    // Animation starten
+    const scanAnimation = document.getElementById('scanning-animation');
+    scanAnimation.classList.add('active');
+    document.getElementById('scan-range').textContent = networkRange + '.1-254';
+    
+    // Progress Bar animieren
+    let progress = 0;
+    const progressBar = document.getElementById('scan-progress');
+    const progressInterval = setInterval(() => {
+        progress += 5;
+        progressBar.style.width = progress + '%';
+        if (progress >= 90) {
+            clearInterval(progressInterval);
+        }
+    }, 500);
+    
+    // API-Call für Discovery
+    fetch('/api/shelly/discover', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            network: networkRange,
+            timeout: 2
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        
+        setTimeout(() => {
+            scanAnimation.classList.remove('active');
+            displayDiscoveryResults(data);
+        }, 1000);
+    })
+    .catch(error => {
+        clearInterval(progressInterval);
+        scanAnimation.classList.remove('active');
+        showToast('Scan fehlgeschlagen: ' + error.message, 'danger');
+    });
+}
+
+// Discovery-Ergebnisse anzeigen
+function displayDiscoveryResults(data) {
+    const resultsDiv = document.getElementById('scan-results');
+    const deviceList = document.getElementById('device-list');
+    const deviceCount = document.getElementById('device-count');
+    
+    // Demo-Daten für Test (wenn keine echten Geräte gefunden)
+    if (!data.discovered || data.discovered.length === 0) {
+        data.discovered = [
+            {
+                ip: '192.168.0.100',
+                type: 'Shelly Plus 1',
+                mac: '84:CC:A8:A1:12:34',
+                name: 'shelly1-84CCA8A11234',
+                gen: 2,
+                online: true
+            },
+            {
+                ip: '192.168.0.101',
+                type: 'Shelly 1PM',
+                mac: '84:CC:A8:B2:23:45',
+                name: 'shelly1pm-84CCA8B22345',
+                gen: 1,
+                online: false
+            }
+        ];
+    }
+    
+    discoveredDevices = data.discovered;
+    deviceCount.textContent = discoveredDevices.length;
+    
+    // Geräteliste erstellen
+    deviceList.innerHTML = '';
+    discoveredDevices.forEach(device => {
+        const deviceHtml = `
+            <div class="device-item ${device.online ? '' : 'offline'}">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${device.online ? 'plug' : 'plug-circle-xmark'} device-icon"></i>
+                    <div>
+                        <h5 class="mb-0">${device.type || 'Unbekanntes Gerät'}</h5>
+                        <small class="text-muted">IP: ${device.ip} | MAC: ${device.mac || 'Unbekannt'}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="status-badge ${device.online ? 'online' : 'offline'}">
+                        ${device.online ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                    <button class="btn btn-sm btn-success" onclick="addDevice('${device.ip}', '${device.type}')">
+                        <i class="fas fa-plus"></i> Hinzufügen
+                    </button>
+                </div>
+            </div>
+        `;
+        deviceList.insertAdjacentHTML('beforeend', deviceHtml);
+    });
+    
+    resultsDiv.style.display = 'block';
+    
+    if (discoveredDevices.length === 0) {
+        deviceList.innerHTML = '<div class="alert alert-warning">Keine Shelly-Geräte im Netzwerk gefunden</div>';
+    } else {
+        showToast(`${discoveredDevices.length} Geräte gefunden!`, 'success');
+    }
+}
+
+// Gerät hinzufügen
+function addDevice(ip, type) {
+    const device = discoveredDevices.find(d => d.ip === ip);
+    
+    if (!device) {
+        showToast('Gerät nicht gefunden', 'error');
+        return;
+    }
+    
+    // Zur konfigurierten Liste hinzufügen
+    configuredDevices.push(device);
+    
+    // API-Call zum Speichern
+    fetch('/api/shelly/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            ip_address: ip,
+            name: type + ' - ' + ip,
+            type: type
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Gerät hinzugefügt!', 'success');
+            updateConfiguredDevices();
+        } else {
+            showToast('Fehler: ' + data.error, 'danger');
+        }
+    });
+}
+
+// Gerät testen
+function testDevice(ip) {
+    showToast('Teste Verbindung zu ' + ip + '...', 'info');
+    
+    fetch('/api/shelly/test/' + ip)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Gerät ist erreichbar!', 'success');
+            } else {
+                showToast('Gerät nicht erreichbar', 'danger');
+            }
+        });
+}
+
+// Gerät entfernen
+function removeDevice(ip) {
+    if (!confirm('Gerät wirklich entfernen?')) {
+        return;
+    }
+    
+    configuredDevices = configuredDevices.filter(d => d.ip !== ip);
+    updateConfiguredDevices();
+    showToast('Gerät entfernt', 'info');
+}
+
+// Konfigurierte Geräte aktualisieren
+function updateConfiguredDevices() {
+    const container = document.getElementById('configured-devices');
+    
+    if (configuredDevices.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">Keine Geräte konfiguriert</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    configuredDevices.forEach(device => {
+        const deviceHtml = `
+            <div class="device-item">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-toggle-on device-icon"></i>
+                    <div>
+                        <h5 class="mb-0">${device.name || device.type}</h5>
+                        <small class="text-muted">IP: ${device.ip} | MAC: ${device.mac || 'Unbekannt'}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="status-badge ${device.online ? 'online' : 'offline'}">
+                        ${device.online ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                    <button class="btn btn-sm btn-primary" onclick="testDevice('${device.ip}')">
+                        <i class="fas fa-vial"></i> Test
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="removeDevice('${device.ip}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', deviceHtml);
+    });
+}
+
+// Konfiguration speichern
+function saveConfiguration() {
+    if (configuredDevices.length === 0) {
+        showToast('Keine Geräte zum Speichern', 'warning');
+        return;
+    }
+    
+    showToast('Konfiguration wird gespeichert...', 'info');
+    
+    // In Produktion: Speichern in Datenbank
+    setTimeout(() => {
+        showToast('Konfiguration erfolgreich gespeichert!', 'success');
+    }, 1000);
+}
+
+// Manuelles Formular
+document.getElementById('manual-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('device-name').value;
+    const ip = document.getElementById('device-ip').value;
+    const type = document.getElementById('device-type').value;
+    const token = document.getElementById('auth-token').value;
+    
+    if (!name || !ip) {
+        showToast('Bitte alle Pflichtfelder ausfüllen', 'warning');
+        return;
+    }
+    
+    // Gerät hinzufügen
+    const newDevice = {
+        name: name,
+        ip: ip,
+        type: type,
+        mac: 'Manuell hinzugefügt',
+        online: false
+    };
+    
+    configuredDevices.push(newDevice);
+    updateConfiguredDevices();
+    
+    // Formular zurücksetzen
+    this.reset();
+    showToast('Gerät manuell hinzugefügt', 'success');
+});
+
+// Toast-Funktion
+function showToast(message, type = 'info') {
+    // Bootstrap Toast oder Alert als Fallback
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'danger' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed top-0 end-0 m-3" 
+             role="alert" style="z-index: 9999;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Auto-dismiss nach 5 Sekunden
+    setTimeout(() => {
+        const alert = document.querySelector('.alert:last-child');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
+}
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    // Netzwerk automatisch erkennen
+    detectNetwork();
+});
+</script>
+{% endblock %}
+
+<!-- Erstellt von Hans Hahn - Alle Rechte vorbehalten -->

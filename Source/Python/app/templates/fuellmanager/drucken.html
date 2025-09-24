@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Füllbeleg {{ fuellvorgang.auftragsnummer }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+        
+        .logo {
+            font-size: 24pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-weight: bold;
+            font-size: 14pt;
+            margin-bottom: 10px;
+            background: #f0f0f0;
+            padding: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        
+        td, th {
+            padding: 5px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            font-weight: bold;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+        }
+        
+        .gas-mix {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px 0;
+        }
+        
+        .gas-component {
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #000;
+            flex: 1;
+            margin: 0 5px;
+        }
+        
+        .gas-component h3 {
+            margin: 0;
+            font-size: 18pt;
+        }
+        
+        .price-table {
+            margin-top: 10px;
+        }
+        
+        .price-total {
+            font-size: 16pt;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+        
+        .signature-section {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .signature-box {
+            width: 45%;
+            text-align: center;
+        }
+        
+        .signature-line {
+            border-top: 1px solid #000;
+            margin-top: 60px;
+            padding-top: 5px;
+        }
+        
+        .signature-img {
+            max-height: 80px;
+            margin: 10px 0;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10pt;
+            color: #666;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+        
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">TAUCHSHOP</div>
+        <div>Füllstation - Gasgemisch-Abrechnung</div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">Auftragsdaten</div>
+        <div class="info-row">
+            <span><span class="info-label">Auftragsnummer:</span> {{ fuellvorgang.auftragsnummer }}</span>
+            <span><span class="info-label">Datum:</span> {{ fuellvorgang.erstellt_am.strftime('%d.%m.%Y %H:%M') }}</span>
+        </div>
+        <div class="info-row">
+            <span><span class="info-label">Operator:</span> {{ fuellvorgang.operator.username }}</span>
+            <span><span class="info-label">Status:</span> {{ fuellvorgang.status }}</span>
+        </div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">Kundeninformationen</div>
+        <div class="info-row">
+            <span><span class="info-label">Name:</span> {{ fuellvorgang.kunde.vollname }}</span>
+            <span><span class="info-label">Mitgliedsnummer:</span> {{ fuellvorgang.kunde.mitgliedsnummer }}</span>
+        </div>
+        <div class="info-row">
+            <span><span class="info-label">Flasche:</span> {{ fuellvorgang.flasche.flasche_nummer }}</span>
+            <span><span class="info-label">Volumen:</span> {{ fuellvorgang.flasche.groesse_liter }} Liter</span>
+        </div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">Füllparameter</div>
+        <div class="info-row">
+            <span><span class="info-label">Restdruck:</span> {{ fuellvorgang.restdruck_bar }} bar</span>
+            <span><span class="info-label">Zieldruck:</span> {{ fuellvorgang.zieldruck_bar }} bar</span>
+            <span><span class="info-label">Enddruck:</span> {{ fuellvorgang.tatsaechlicher_enddruck or fuellvorgang.zieldruck_bar }} bar</span>
+        </div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">Gasgemisch</div>
+        <div class="gas-mix">
+            <div class="gas-component">
+                <div>Sauerstoff</div>
+                <h3>{{ fuellvorgang.sauerstoff_prozent }}%</h3>
+            </div>
+            <div class="gas-component">
+                <div>Helium</div>
+                <h3>{{ fuellvorgang.helium_prozent }}%</h3>
+            </div>
+            <div class="gas-component">
+                <div>Stickstoff</div>
+                <h3>{{ fuellvorgang.stickstoff_prozent }}%</h3>
+            </div>
+        </div>
+        
+        {% set berechnungen = fuellvorgang.get_berechnungen() %}
+        {% if berechnungen %}
+        <table>
+            <tr>
+                <td>MOD (1.2 bar ppO₂):</td>
+                <td>{{ berechnungen.mod_1_2 }} m</td>
+                <td>MOD (1.4 bar ppO₂):</td>
+                <td>{{ berechnungen.mod_1_4 }} m</td>
+            </tr>
+            <tr>
+                <td>MOD (1.6 bar ppO₂):</td>
+                <td>{{ berechnungen.mod_1_6 }} m</td>
+                <td>END bei 30m:</td>
+                <td>{{ berechnungen.end_30m }} m</td>
+            </tr>
+        </table>
+        {% endif %}
+    </div>
+    
+    <div class="section">
+        <div class="section-title">Preisberechnung</div>
+        <table class="price-table">
+            <tr>
+                <td>Helium ({{ "%.1f"|format(fuellvorgang.preis_helium / 0.095) }} Bar·Liter × 0,095 €)</td>
+                <td style="text-align: right;">{{ "%.2f"|format(fuellvorgang.preis_helium) }} €</td>
+            </tr>
+            <tr>
+                <td>Sauerstoff ({{ "%.1f"|format(fuellvorgang.preis_sauerstoff / 0.01) }} Bar·Liter × 0,01 €)</td>
+                <td style="text-align: right;">{{ "%.2f"|format(fuellvorgang.preis_sauerstoff) }} €</td>
+            </tr>
+            <tr>
+                <td>Luft/Stickstoff ({{ "%.1f"|format(fuellvorgang.preis_luft / 0.002) }} Bar·Liter × 0,002 €)</td>
+                <td style="text-align: right;">{{ "%.2f"|format(fuellvorgang.preis_luft) }} €</td>
+            </tr>
+        </table>
+        <div class="price-total">
+            Gesamtpreis: {{ "%.2f"|format(fuellvorgang.gesamtpreis) }} €
+        </div>
+    </div>
+    
+    {% if fuellvorgang.signaturen %}
+    <div class="section">
+        <div class="section-title">Unterschriften</div>
+        <div class="signature-section">
+            {% for signatur in fuellvorgang.signaturen %}
+            <div class="signature-box">
+                <div>{{ 'Kunde' if signatur.signatur_typ == 'kunde' else 'Mitarbeiter' }}</div>
+                <img src="{{ signatur.signatur_daten }}" class="signature-img">
+                <div class="signature-line">
+                    {{ signatur.unterschrieben_von }}<br>
+                    {{ signatur.unterschrieben_am.strftime('%d.%m.%Y %H:%M') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="footer">
+        Vielen Dank für Ihren Besuch! | Dokument erstellt am {{ datetime.now().strftime('%d.%m.%Y %H:%M') }}
+    </div>
+    
+    <script>
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>
